@@ -13,6 +13,7 @@ public class Drive extends LinearOpMode
 {
 
     private DcMotor motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight;
+    private DcMotorEx slideLeft, slideRight;
     private Servo clawGrabber, clawExtend;
     private DcMotorEx clawArm;
     double motorspeed = 1.0;
@@ -32,6 +33,7 @@ public class Drive extends LinearOpMode
     boolean armRightBumper;
     boolean armButtonX;
     double armRightStickY;
+    double armLeftStickY;
 
     double armExtendedPosition = 0.42;//a
     double armRetractedPosition = 0.0;//x -0.55
@@ -40,40 +42,60 @@ public class Drive extends LinearOpMode
 
     boolean clawExtended = false;
 
-    double armRotateSpeed = 0.7; //previously 1.0
-    double lasterror = 0;
-    int targetPos = 0;
+    double armRotateSpeed = 1.0; //previously 0.7
+    double slidePower = 1.0;
+
+    int cycleTime = 25; //(ms)   pid controller time between updating target position
+    double lastErrorL = 0;
+    double lastErrorR = 0;
+    int targetL = 0;
+    int targetR = 0;
     ElapsedTime timer;
 
-    double sum = 0.0;
-    double kp = 0.0;
-    double ki = 0.0;
-    double kd = 0.0;
+    double sumL = 0.0;
+    double sumR = 0.0;
+    double kp = 0.001;
+    double ki = 0.001;
+    double kd = 0.001;
 
-    public void pidController(DcMotorEx motor, ElapsedTime runtime, double rightStick)
+
+    int clawArmRestingPosition = 114;
+
+    int armFerbDangerZone = 0;
+    int slideFerbDangerZone = 0;
+
+    int slideFerbGoodZone = 50;
+
+    double brakePower = -0.2;
+    int brakeActivePosition = 300;
+    int slideSlowZone = 500;
+
+    public void pidController(DcMotorEx motor, double stick, double sum, int target, double lasterror)
     {
-        while(rightStick > 0.0)
-        {
-            motor.setTargetPosition(targetPos + 1);
-            runtime.reset();
-            while(runtime.milliseconds() < 50)
-            {
 
+        ElapsedTime runtime = new ElapsedTime();
+        while(stick < -0.1)
+        {
+            motor.setTargetPosition(target + 1);
+            runtime.reset();
+            while(runtime.milliseconds() < 25)
+            {
+                //do nothing!!!
             }
         }
 
-        while(rightStick < 0.0)
+        while(stick > 0.1)
         {
-            motor.setTargetPosition(targetPos - 1);
+            motor.setTargetPosition(target - 1);
             runtime.reset();
-            while(runtime.milliseconds() < 50)
+            while(runtime.milliseconds() < 25)
             {
-
+                //do nothing!!!
             }
         }
 
 
-        double error = motor.getCurrentPosition() - motor.getTargetPosition();
+        double error = motor.getCurrentPosition() - motor.getTargetPosition();//boyd is just better quote from boyd. btrue
 
         sum = sum + (error/10);
 
@@ -81,6 +103,7 @@ public class Drive extends LinearOpMode
         double integral = ki * sum;
         double derivative = kd * (lasterror - error);
 
+        lasterror = error;
         motor.setPower((proportional + integral + derivative));
     }
 
@@ -162,13 +185,106 @@ public class Drive extends LinearOpMode
 
     public void rotate()
     {
+
         armRightStickY = gamepad2.right_stick_y;
-        pidController(clawArm, timer, armRightStickY);
+        clawArm.setPower(armRightStickY * armRotateSpeed);
+
+        /*
+        if(clawArm.getCurrentPosition() > clawArmRestingPosition && slideLeft.getCurrentPosition() <= 15)
+        {
+
+            while(clawArm.getCurrentPosition() > clawArmRestingPosition)
+            {
+                clawArm.setPower(0.75);
+            }
+            clawArm.setPower(0.0);
+
+            clawArm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            clawArm.setTargetPosition(clawArmRestingPosition - 1);
+            clawArm.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+
+        }
+
+        if(clawArm.getCurrentPosition() > armFerbDangerZone && slideLeft.getCurrentPosition() > slideFerbDangerZone)
+        {
+            slideLeft.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            slideLeft.setTargetPosition(slideFerbGoodZone);
+            slideLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
+
+        else
+        {
+            clawArm.setPower(armRightStickY * armRotateSpeed);
+        }
+         */
+
     }
 
     public void slides()
     {
-        //not yet
+        armLeftStickY = gamepad2.left_stick_y;
+
+        if(slideLeft.getCurrentPosition() < slideSlowZone)
+        {
+            if(armLeftStickY != 0.0)
+            {
+                if(armLeftStickY > 0)
+                {
+                    slideLeft.setPower(armLeftStickY * (slidePower * 0.3));
+                    slideRight.setPower(armLeftStickY * (slidePower * 0.3));
+                }
+                else
+                {
+                    slideLeft.setPower(armLeftStickY * slidePower);
+                    slideRight.setPower(armLeftStickY * slidePower);
+                }
+            }
+
+            if(slideLeft.getCurrentPosition() >= brakeActivePosition)
+            {
+                slideLeft.setPower(brakePower);
+                slideRight.setPower(brakePower);
+            }
+            
+        }
+
+        else
+        {
+            if(armLeftStickY != 0.0)
+            {
+                slideLeft.setPower(armLeftStickY * slidePower);
+                slideRight.setPower(armLeftStickY * slidePower);
+            }
+
+            if(slideLeft.getCurrentPosition() >= brakeActivePosition)
+            {
+                slideLeft.setPower(brakePower);
+                slideRight.setPower(brakePower);
+            }
+        }
+
+
+
+    }
+
+    public void showTelemetry()
+    {
+        armLeftStickY = gamepad2.left_stick_y;
+
+        telemetry.addData("clawArm:", clawArm.getCurrentPosition());
+
+        telemetry.addData("SlideLeft:", slideLeft.getCurrentPosition());
+        telemetry.addData("LeftPower:", slideLeft.getPower());
+        telemetry.addData("SlideLeft target:", slideLeft.getTargetPosition());
+
+        telemetry.addData("SlideRight:", slideRight.getCurrentPosition());
+        telemetry.addData("RightPower", slideRight.getPower());
+        telemetry.addData("SlideRight target:", slideRight.getTargetPosition());
+
+        telemetry.addData("LeftStickY:", armLeftStickY);
+
+        telemetry.update();
     }
 
     public void initialize()
@@ -182,6 +298,12 @@ public class Drive extends LinearOpMode
         clawGrabber =  hardwareMap.get(Servo.class, "Grabber");
         clawArm = hardwareMap.get(DcMotorEx.class, "Arm");
         clawExtend = hardwareMap.get(Servo.class, "Extender");
+
+        slideLeft = hardwareMap.get(DcMotorEx.class, "SlideLeft");
+        slideRight = hardwareMap.get(DcMotorEx.class, "SlideRight");
+
+        //slideRight.setDirection(DcMotorSimple.Direction.REVERSE);
+        slideLeft.setDirection(DcMotorSimple.Direction.REVERSE);
 
 
         // set motor direction
@@ -201,6 +323,8 @@ public class Drive extends LinearOpMode
 
         clawArm.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
+        clawArm.setDirection(DcMotorSimple.Direction.REVERSE);
+
 
         waitForStart();
     }
@@ -215,6 +339,8 @@ public class Drive extends LinearOpMode
             claw();
             extend();
             rotate();
+            slides();
+            showTelemetry();
         }
     }
 }
