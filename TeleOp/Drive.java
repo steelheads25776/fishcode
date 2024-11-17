@@ -8,6 +8,8 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.robotcore.internal.camera.delegating.DelegatingCaptureSequence;
+
 @TeleOp
 public class Drive extends LinearOpMode
 {
@@ -17,6 +19,8 @@ public class Drive extends LinearOpMode
     private Servo clawGrabber, clawExtend;
     private DcMotorEx clawArm;
     double motorspeed = 1.0;
+    double rotateSpeed = 0.75;
+    double slowRotateSpeed = 0.35;
     double motorspeedhigh = 1.0;
     double motorspeedslow = 0.5;
     double motorspeedslower = 0.25;
@@ -35,8 +39,13 @@ public class Drive extends LinearOpMode
     double armRightStickY;
     double armLeftStickY;
 
+    boolean armDpadUp, armDpadDown, armDpadLeft, armDpadRight;
+
     double armExtendedPosition = 0.42;//a
     double armRetractedPosition = 0.0;//x -0.55
+
+    double servoPosition = 0.0;
+
     double clawOpenPosition = 0.8;//left bumper
     double clawClosedPosition = 0.4;//right bumper
 
@@ -45,67 +54,19 @@ public class Drive extends LinearOpMode
     double armRotateSpeed = 1.0; //previously 0.7
     double slidePower = 1.0;
 
-    int cycleTime = 25; //(ms)   pid controller time between updating target position
-    double lastErrorL = 0;
-    double lastErrorR = 0;
-    int targetL = 0;
-    int targetR = 0;
-    ElapsedTime timer;
-
-    double sumL = 0.0;
-    double sumR = 0.0;
-    double kp = 0.001;
-    double ki = 0.001;
-    double kd = 0.001;
-
-
     int clawArmRestingPosition = 114;
+    int clawArmStartPosition = -2445;
 
     int armFerbDangerZone = 0;
     int slideFerbDangerZone = 0;
 
     int slideFerbGoodZone = 50;
 
-    double brakePower = -0.2;
-    int brakeActivePosition = 300;
-    int slideSlowZone = 500;
+    double brakePower = -0.10;
+    int brakeActivePosition = 100;
+    int slideSlowZone = 100;
 
-    public void pidController(DcMotorEx motor, double stick, double sum, int target, double lasterror)
-    {
-
-        ElapsedTime runtime = new ElapsedTime();
-        while(stick < -0.1)
-        {
-            motor.setTargetPosition(target + 1);
-            runtime.reset();
-            while(runtime.milliseconds() < 25)
-            {
-                //do nothing!!!
-            }
-        }
-
-        while(stick > 0.1)
-        {
-            motor.setTargetPosition(target - 1);
-            runtime.reset();
-            while(runtime.milliseconds() < 25)
-            {
-                //do nothing!!!
-            }
-        }
-
-
-        double error = motor.getCurrentPosition() - motor.getTargetPosition();//boyd is just better quote from boyd. btrue
-
-        sum = sum + (error/10);
-
-        double proportional = kp * error;
-        double integral = ki * sum;
-        double derivative = kd * (lasterror - error);
-
-        lasterror = error;
-        motor.setPower((proportional + integral + derivative));
-    }
+    String rotateMode = "slow";
 
     public void drive()
     {
@@ -118,10 +79,24 @@ public class Drive extends LinearOpMode
         triggerLeft = gamepad1.left_trigger;
         triggerRight = gamepad1.right_trigger;
 
-        motorFrontLeft.setPower((stickLeftY - stickLeftX - stickRightX) * motorspeed);
-        motorFrontRight.setPower((stickLeftY + stickLeftX + stickRightX) * motorspeed);
-        motorBackLeft.setPower((stickLeftY + stickLeftX - stickRightX) * motorspeed);
-        motorBackRight.setPower((stickLeftY - stickLeftX + stickRightX) * motorspeed);
+        if(stickLeftX == 0.0 && stickLeftY == 0.0)
+        {
+            rotateMode = "slow";
+            motorFrontLeft.setPower((stickRightX * slowRotateSpeed) * -1);
+            motorFrontRight.setPower((stickRightX * slowRotateSpeed) );
+            motorBackLeft.setPower((stickRightX * slowRotateSpeed) * -1);
+            motorBackRight.setPower((stickRightX * slowRotateSpeed));
+        }
+
+
+        else
+        {
+            rotateMode = "fast";
+            motorFrontLeft.setPower((stickLeftY - stickLeftX - (stickRightX * rotateSpeed)) * motorspeed);
+            motorFrontRight.setPower((stickLeftY + stickLeftX + (stickRightX* rotateSpeed)) * motorspeed);
+            motorBackLeft.setPower((stickLeftY + stickLeftX - (stickRightX* rotateSpeed)) * motorspeed);
+            motorBackRight.setPower((stickLeftY - stickLeftX + (stickRightX * rotateSpeed)) * motorspeed);
+        }
 
         if(triggerLeft >= 0.2)
         {
@@ -141,6 +116,8 @@ public class Drive extends LinearOpMode
     {
         armRightBumper = gamepad2.right_bumper;//close claw
         armLeftBumper = gamepad2.left_bumper;//open claw
+
+
 
         //open claw
         if(armLeftBumper)
@@ -162,13 +139,74 @@ public class Drive extends LinearOpMode
         armButtonX = gamepad2.x;//retract
         //Temporary for now, will turn into one button later.
 
+        armDpadUp = gamepad2.dpad_up; //claw forward
+        armDpadDown = gamepad2.dpad_down; // claw backward
 
+        armDpadLeft = gamepad2.dpad_left; // rotate robot left
+        armDpadRight = gamepad2.dpad_right; // rotate robot right
+
+        if(armDpadLeft)
+        {
+            motorFrontLeft.setPower((rotateSpeed * 0.5) * 1);
+            motorFrontRight.setPower((rotateSpeed * 0.5) * -1);
+            motorBackLeft.setPower((rotateSpeed * 0.5) * -1);
+            motorBackRight.setPower((rotateSpeed * 0.5) * 1);
+        }
+
+        if(armDpadRight)
+        {
+            motorFrontLeft.setPower((rotateSpeed * 0.5) * -1);
+            motorFrontRight.setPower((rotateSpeed * 0.5) * 1);
+            motorBackLeft.setPower((rotateSpeed * 0.5) * 1);
+            motorBackRight.setPower((rotateSpeed * 0.5) * -1);
+        }
+
+        if(armDpadUp)
+        {
+            if(servoPosition <= armExtendedPosition)
+            {
+                servoPosition = servoPosition + 0.01;
+
+                clawExtend.setPosition(servoPosition);
+
+            }
+
+            else
+            {
+                clawExtend.setPosition(armExtendedPosition);
+                motorFrontLeft.setPower(-0.2);
+                motorFrontRight.setPower(-0.2);
+                motorBackLeft.setPower(-0.2);
+                motorBackRight.setPower(-0.2);
+            }
+        }
+
+        if(armDpadDown)
+        {
+            if(servoPosition >= armRetractedPosition)
+            {
+                servoPosition = servoPosition - 0.01;
+                clawExtend.setPosition(servoPosition);
+
+            }
+
+            else
+            {
+                clawExtend.setPosition(armRetractedPosition);
+                motorFrontLeft.setPower(0.2);
+                motorFrontRight.setPower(0.2);
+                motorBackLeft.setPower(0.2);
+                motorBackRight.setPower(0.2);
+            }
+
+        }
 
         if(armButtonX)
         {
             if(clawExtended)
             {
                 clawExtend.setPosition(armRetractedPosition);
+                servoPosition = armRetractedPosition;
                 clawExtended = false;
             }
         }
@@ -178,6 +216,7 @@ public class Drive extends LinearOpMode
             if(!clawExtended)
             {
                 clawExtend.setPosition(armExtendedPosition);
+                servoPosition = armExtendedPosition;
                 clawExtended = true;
             }
         }
@@ -187,7 +226,7 @@ public class Drive extends LinearOpMode
     {
 
         armRightStickY = gamepad2.right_stick_y;
-        clawArm.setPower(armRightStickY * armRotateSpeed);
+        clawArm.setPower((armRightStickY * armRotateSpeed));
 
         /*
         if(clawArm.getCurrentPosition() > clawArmRestingPosition && slideLeft.getCurrentPosition() <= 15)
@@ -240,13 +279,15 @@ public class Drive extends LinearOpMode
                     slideRight.setPower(armLeftStickY * slidePower);
                 }
             }
-
-            if(slideLeft.getCurrentPosition() >= brakeActivePosition)
+            else
             {
-                slideLeft.setPower(brakePower);
-                slideRight.setPower(brakePower);
+                if (slideLeft.getCurrentPosition() >= brakeActivePosition)
+                {
+                    slideLeft.setPower(brakePower);
+                    slideRight.setPower(brakePower);
+                }
             }
-            
+
         }
 
         else
@@ -257,10 +298,13 @@ public class Drive extends LinearOpMode
                 slideRight.setPower(armLeftStickY * slidePower);
             }
 
-            if(slideLeft.getCurrentPosition() >= brakeActivePosition)
+            else
             {
-                slideLeft.setPower(brakePower);
-                slideRight.setPower(brakePower);
+                if (slideLeft.getCurrentPosition() >= brakeActivePosition)
+                {
+                    slideLeft.setPower(brakePower);
+                    slideRight.setPower(brakePower);
+                }
             }
         }
 
@@ -284,6 +328,13 @@ public class Drive extends LinearOpMode
 
         telemetry.addData("LeftStickY:", armLeftStickY);
 
+        telemetry.addData("rotation mode", rotateMode);
+
+        telemetry.addData("FL power", motorFrontLeft.getPower());
+        telemetry.addData("FR power", motorFrontRight.getPower());
+        telemetry.addData("BL power", motorBackLeft.getPower());
+        telemetry.addData("BR power", motorBackRight.getPower());
+
         telemetry.update();
     }
 
@@ -298,6 +349,8 @@ public class Drive extends LinearOpMode
         clawGrabber =  hardwareMap.get(Servo.class, "Grabber");
         clawArm = hardwareMap.get(DcMotorEx.class, "Arm");
         clawExtend = hardwareMap.get(Servo.class, "Extender");
+
+        clawExtend.setPosition(armRetractedPosition);
 
         slideLeft = hardwareMap.get(DcMotorEx.class, "SlideLeft");
         slideRight = hardwareMap.get(DcMotorEx.class, "SlideRight");
@@ -324,6 +377,14 @@ public class Drive extends LinearOpMode
         clawArm.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         clawArm.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        clawArm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        clawArm.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        while(clawArm.getCurrentPosition() > clawArmStartPosition)
+        {
+            clawArm.setPower(-0.50);
+        }
+        clawArm.setPower(0.0);
 
 
         waitForStart();
