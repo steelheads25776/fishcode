@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
+import org.firstinspires.ftc.teamcode.Robot;
 
 import org.firstinspires.ftc.robotcore.internal.camera.delegating.DelegatingCaptureSequence;
 
@@ -15,15 +16,17 @@ import org.firstinspires.ftc.robotcore.internal.camera.delegating.DelegatingCapt
 public class TestMode extends LinearOpMode
 {
     GoBildaPinpointDriver odometry;
-    private DcMotor motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight;
-    private DcMotorEx slideLeft, slideRight;
-    private Servo clawGrabber, clawExtend;
-    private DcMotorEx clawArm;
+    DcMotor motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight;
+    DcMotorEx motorSlideLeft, motorSlideRight;
+    DcMotorEx motorClawArm;
+    Servo servoClawGrabber, servoClawExtend;
+    Robot bot;
+
     double motorspeed = 1.0;
     double rotateSpeed = 0.75;
     double slowRotateSpeed = 0.35;
     double motorspeedhigh = 1.0;
-    double motorspeednormal = 0.5;
+    double motorspeednormal = 0.65;
     double motorspeedslower = 0.25;
     float stickLeftX;
     float stickLeftY;
@@ -43,6 +46,7 @@ public class TestMode extends LinearOpMode
     boolean armButtonX;
     boolean armButtonB;
     boolean armButtonY;
+    boolean driveDpadL, driveDpadU, driveDpadD, driveDpadR;
     double armRightStickY;
     double armLeftStickY;
     float armTriggerLeft;
@@ -79,6 +83,18 @@ public class TestMode extends LinearOpMode
 
     int barSquaredPosition = 0; //?
 
+    double orientationCurrent = 0.0; // in degrees - value will be 0 - 359.99
+    double orientationTarget = -1.0;  // -1.0 means no rotation
+    double distanceToTargetOrientation = 0.0;
+    double positionOrientationTarget = 0.0;
+    double positionXTarget = -10000.0;
+    double positionYTarget = -10000.0;
+    double distanceToTargetPosition = 0.0;
+    double[] rotateReturn = new double[2];
+    double[] positionReturn = new double[2];
+    double slideTarget = -1.0;
+    double armTarget = -1.0;
+
 
 
     double brakePower = -0.10;
@@ -95,51 +111,45 @@ public class TestMode extends LinearOpMode
     boolean hitR = false;
     boolean hitL = false;
 
+    public void armToGamePosition(String position)
+    {
+        if(position.equalsIgnoreCase("zero"))
+        {
+            armTarget = 0;
+            slideTarget = 0;
+        }
+        else if(position.equalsIgnoreCase("bar"))
+        {
+            armTarget = 2500;
+            slideTarget = 930;
+        }
+        else if(position.equalsIgnoreCase("bucket"))
+        {
+            armTarget = 3000;
+            slideTarget = 2000;
+        }
+    }
+
     public void squareToBar()
     {
         driveButtonA = gamepad1.a;
         if(driveButtonA)
         {
-            if (odometry.getHeading() < barSquaredPosition) // getHeading() returns radians, but not degrees.
-            {                                               // rad * (180/pi) = deg
-                motorFrontLeft.setPower(0.0);
-                motorFrontRight.setPower(0.0);
-                motorBackLeft.setPower(0.0);
-                motorBackRight.setPower(0.0);
-                odometry.update();
-            }
 
-            else if (odometry.getHeading() > barSquaredPosition)
-            {
-                motorFrontLeft.setPower(0.0);
-                motorFrontRight.setPower(0.0);
-                motorBackLeft.setPower(0.0);
-                motorBackRight.setPower(0.0);
-                odometry.update();
-            }
         }
     }
     public void squareToBucket()
     {
         driveButtonX = gamepad1.x;
     }
+
+
     public void barPlacePosition()
     {
         armButtonB = gamepad2.b;
         if(armButtonB)
         {
-            if(slideLeft.getCurrentPosition() < slideBarPosition || clawArm.getCurrentPosition() < armBarPosition)
-            {
-                slideLeft.setPower(0.0);
-                slideRight.setPower(0.0);
-                clawArm.setPower(0.0);
-            }
-            else
-            {
-                slideLeft.setPower(0.0);
-                slideRight.setPower(0.0);
-                clawArm.setPower(0.0);
-            }
+
         }
     }
     public void bucketPlacePosition()
@@ -147,18 +157,7 @@ public class TestMode extends LinearOpMode
         armButtonY = gamepad2.y;
         if(armButtonY)
         {
-            if(slideLeft.getCurrentPosition() < slideBucketPosition || clawArm.getCurrentPosition() < armBucketPosition)
-            {
-                slideLeft.setPower(0.0);
-                slideRight.setPower(0.0);
-                clawArm.setPower(0.0);
-            }
-            else
-            {
-                slideLeft.setPower(0.0);
-                slideRight.setPower(0.0);
-                clawArm.setPower(0.0);
-            }
+
         }
     }
 
@@ -168,6 +167,32 @@ public class TestMode extends LinearOpMode
         squareToBucket();
         barPlacePosition();
         bucketPlacePosition();
+    }
+
+    public void driverDPad()
+    {
+        driveDpadL = gamepad1.dpad_left;
+        driveDpadR = gamepad1.dpad_right;
+        driveDpadU = gamepad1.dpad_up;
+        driveDpadD = gamepad1.dpad_down;
+
+        if(driveDpadL)
+        {
+            armToGamePosition("bar");
+        }
+        else if(driveDpadU)
+        {
+            armToGamePosition("bucket");
+        }
+        else if(driveDpadR)
+        {
+            armToGamePosition("bar");
+        }
+        else if(driveDpadD)
+        {
+            armToGamePosition("zero");
+        }
+
     }
 
     public void drive()
@@ -180,6 +205,7 @@ public class TestMode extends LinearOpMode
 
         triggerLeft = gamepad1.left_trigger;
         triggerRight = gamepad1.right_trigger;
+
 
         if(stickLeftX == 0.0 && stickLeftY == 0.0)
         {
@@ -194,10 +220,11 @@ public class TestMode extends LinearOpMode
         else
         {
             rotateMode = "fast";
-            motorFrontLeft.setPower((stickLeftY - stickLeftX - (stickRightX * rotateSpeed)) * motorspeed);
-            motorFrontRight.setPower((stickLeftY + stickLeftX + (stickRightX* rotateSpeed)) * motorspeed);
-            motorBackLeft.setPower((stickLeftY + stickLeftX - (stickRightX* rotateSpeed)) * motorspeed);
-            motorBackRight.setPower((stickLeftY - stickLeftX + (stickRightX * rotateSpeed)) * motorspeed);
+            double denominator = Math.max((Math.abs(stickLeftX) + Math.abs(stickLeftY) + Math.abs(stickRightX * rotateSpeed)), 1.0);
+            motorFrontLeft.setPower(((stickLeftY - stickLeftX - (stickRightX * rotateSpeed)) / denominator) * motorspeed);
+            motorFrontRight.setPower(((stickLeftY + stickLeftX + (stickRightX* rotateSpeed)) / denominator) * motorspeed);
+            motorBackLeft.setPower(((stickLeftY + stickLeftX - (stickRightX* rotateSpeed)) / denominator) * motorspeed);
+            motorBackRight.setPower(((stickLeftY - stickLeftX + (stickRightX * rotateSpeed)) / denominator) * motorspeed);
         }
 
         if(triggerLeft >= 0.1)
@@ -226,13 +253,13 @@ public class TestMode extends LinearOpMode
         //open claw
         if(armLeftBumper)
         {
-            clawGrabber.setPosition(clawOpenPosition);
+            servoClawGrabber.setPosition(clawOpenPosition);
         }
 
         //close claw
         if(armRightBumper)
         {
-            clawGrabber.setPosition(clawClosedPosition);
+            servoClawGrabber.setPosition(clawClosedPosition);
         }
 
     }
@@ -294,7 +321,7 @@ public class TestMode extends LinearOpMode
                 servoPosition = armExtendedPosition;
             }
 
-            clawExtend.setPosition(servoPosition);
+            servoClawExtend.setPosition(servoPosition);
         }
         /*
         if(armTriggerRight == 1.0 && !hitR)
@@ -321,7 +348,7 @@ public class TestMode extends LinearOpMode
             {
                 servoPosition = armRetractedPosition;
             }
-            clawExtend.setPosition(servoPosition);
+            servoClawExtend.setPosition(servoPosition);
         }
 
 
@@ -329,7 +356,7 @@ public class TestMode extends LinearOpMode
         {
             if(clawExtended)
             {
-                clawExtend.setPosition(armRetractedPosition);
+                servoClawExtend.setPosition(armRetractedPosition);
                 servoPosition = armRetractedPosition;
                 clawExtended = false;
             }
@@ -339,7 +366,7 @@ public class TestMode extends LinearOpMode
         {
             if(!clawExtended)
             {
-                clawExtend.setPosition(armExtendedPosition);
+                servoClawExtend.setPosition(armExtendedPosition);
                 servoPosition = armExtendedPosition;
                 clawExtended = true;
             }
@@ -350,7 +377,7 @@ public class TestMode extends LinearOpMode
     {
 
         armRightStickY = gamepad2.right_stick_y;
-        clawArm.setPower((armRightStickY * armRotateSpeed));
+        motorClawArm.setPower((armRightStickY * armRotateSpeed));
 
         /*
         if(clawArm.getCurrentPosition() > clawArmRestingPosition && slideLeft.getCurrentPosition() <= 15)
@@ -388,42 +415,42 @@ public class TestMode extends LinearOpMode
     {
         armLeftStickY = gamepad2.left_stick_y;
 
-        if(slideLeft.getCurrentPosition() < slideSlowZone)
+        if(motorSlideLeft.getCurrentPosition() < slideSlowZone)
         {
             if(armLeftStickY != 0.0)
             {
                 if(armLeftStickY > 0)//down
                 {
-                    slideLeft.setPower(armLeftStickY * (slidePower * 0.2));
-                    slideRight.setPower(armLeftStickY * (slidePower * 0.2));
+                    motorSlideLeft.setPower(armLeftStickY * (slidePower * 0.2));
+                    motorSlideRight.setPower(armLeftStickY * (slidePower * 0.2));
                 }
                 else//up
                 {
-                    slideLeft.setPower(armLeftStickY * slidePower);
-                    slideRight.setPower(armLeftStickY * slidePower);
+                    motorSlideLeft.setPower(armLeftStickY * slidePower);
+                    motorSlideRight.setPower(armLeftStickY * slidePower);
                 }
 
-                slidePosition = slideLeft.getCurrentPosition();
+                slidePosition = motorSlideLeft.getCurrentPosition();
             }
             else
             {
-                if (slideLeft.getCurrentPosition() >= brakeActivePosition)
+                if (motorSlideLeft.getCurrentPosition() >= brakeActivePosition)
                 {
-                    slideLeft.setPower(brakePower);
-                    slideRight.setPower(brakePower);
+                    motorSlideLeft.setPower(brakePower);
+                    motorSlideRight.setPower(brakePower);
 
-                    if(slideLeft.getCurrentPosition() < (slidePosition - 5))
+                    if(motorSlideLeft.getCurrentPosition() < (slidePosition - 5))
                     {
                         brakePower = brakePower - 0.01;
-                        slideLeft.setPower(brakePower);
-                        slideRight.setPower(brakePower);
+                        motorSlideLeft.setPower(brakePower);
+                        motorSlideRight.setPower(brakePower);
                     }
 
-                    else if(slideLeft.getCurrentPosition() > (slidePosition + 5))
+                    else if(motorSlideLeft.getCurrentPosition() > (slidePosition + 5))
                     {
                         brakePower = brakePower + 0.01;
-                        slideLeft.setPower(brakePower);
-                        slideRight.setPower(brakePower);
+                        motorSlideLeft.setPower(brakePower);
+                        motorSlideRight.setPower(brakePower);
                     }
 
                 }
@@ -436,16 +463,16 @@ public class TestMode extends LinearOpMode
         {
             if(armLeftStickY != 0.0)
             {
-                slideLeft.setPower(armLeftStickY * slidePower);
-                slideRight.setPower(armLeftStickY * slidePower);
+                motorSlideLeft.setPower(armLeftStickY * slidePower);
+                motorSlideRight.setPower(armLeftStickY * slidePower);
             }
 
             else
             {
-                if (slideLeft.getCurrentPosition() >= brakeActivePosition)
+                if (motorSlideLeft.getCurrentPosition() >= brakeActivePosition)
                 {
-                    slideLeft.setPower(brakePower);
-                    slideRight.setPower(brakePower);
+                    motorSlideLeft.setPower(brakePower);
+                    motorSlideRight.setPower(brakePower);
                 }
             }
         }
@@ -458,37 +485,38 @@ public class TestMode extends LinearOpMode
     {
         armLeftStickY = gamepad2.left_stick_y;
 
-        telemetry.addData("clawArm:", clawArm.getCurrentPosition());
+        //telemetry.addData("clawArm:", clawArm.getCurrentPosition());
 
-        telemetry.addData("SlideLeft:", slideLeft.getCurrentPosition());
-        telemetry.addData("LeftPower:", slideLeft.getPower());
-        telemetry.addData("SlideLeft target:", slideLeft.getTargetPosition());
+        //telemetry.addData("SlideLeft:", slideLeft.getCurrentPosition());
+        //telemetry.addData("LeftPower:", slideLeft.getPower());
+        //telemetry.addData("SlideLeft target:", slideLeft.getTargetPosition());
 
-        telemetry.addData("SlideRight:", slideRight.getCurrentPosition());
-        telemetry.addData("RightPower", slideRight.getPower());
-        telemetry.addData("SlideRight target:", slideRight.getTargetPosition());
+        //telemetry.addData("SlideRight:", slideRight.getCurrentPosition());
+        //telemetry.addData("RightPower", slideRight.getPower());
+        //telemetry.addData("SlideRight target:", slideRight.getTargetPosition());
 
-        telemetry.addData("LeftStickY:", armLeftStickY);
+        //telemetry.addData("LeftStickY:", armLeftStickY);
 
-        telemetry.addData("rotation mode", rotateMode);
+        //telemetry.addData("rotation mode", rotateMode);
 
         telemetry.addData("FL power", motorFrontLeft.getPower());
         telemetry.addData("FR power", motorFrontRight.getPower());
         telemetry.addData("BL power", motorBackLeft.getPower());
         telemetry.addData("BR power", motorBackRight.getPower());
 
-        telemetry.addData("extender position", clawExtend.getPosition());
+        //telemetry.addData("extender position", clawExtend.getPosition());
 
         telemetry.addData("odometry Position X", odometry.getPosX());
         telemetry.addData("odometry Position Y", odometry.getPosY());
-        telemetry.addData("odometry Radians", odometry.getHeading());
+        //telemetry.addData("odometry Radians", odometry.getHeading());
         telemetry.addData("odometry Degrees", (odometry.getHeading() * (180 / Math.PI)));
 
         telemetry.addData("odometry velocity X", odometry.getVelX());
         telemetry.addData("odometry velocity Y", odometry.getVelY());
-        telemetry.addData("odometry velocity Radians", odometry.getHeadingVelocity());
+        //telemetry.addData("odometry velocity Radians", odometry.getHeadingVelocity());
         telemetry.addData("odometry velocity Degrees", (odometry.getHeadingVelocity() * (180 / Math.PI)));
-
+        telemetry.addData("arm current position", motorClawArm.getCurrentPosition());
+        telemetry.addData("slide position", motorSlideLeft.getCurrentPosition());
         odometry.update();
 
         telemetry.update();
@@ -496,52 +524,56 @@ public class TestMode extends LinearOpMode
 
     public void initialize()
     {
-        // setting motor hardware to variables
+        // setting hardware to variables
         motorFrontLeft = hardwareMap.get(DcMotor.class, "FrontLeft");
         motorFrontRight = hardwareMap.get(DcMotor.class, "FrontRight");
         motorBackLeft = hardwareMap.get(DcMotor.class, "BackLeft");
         motorBackRight = hardwareMap.get(DcMotor.class, "BackRight");
 
-        odometry = hardwareMap.get(GoBildaPinpointDriver.class, "Odometry");
-        //odometry.setOffsets(0, 0); // don't know how to get these offsets yet
-        odometry.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.REVERSED);
-        odometry.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_SWINGARM_POD);
-        odometry.resetPosAndIMU();
-
-        clawGrabber =  hardwareMap.get(Servo.class, "Grabber");
-        clawArm = hardwareMap.get(DcMotorEx.class, "Arm");
-        clawExtend = hardwareMap.get(Servo.class, "Extender");
-
-        clawExtend.setPosition(armRetractedPosition);
-
-        slideLeft = hardwareMap.get(DcMotorEx.class, "SlideLeft");
-        slideRight = hardwareMap.get(DcMotorEx.class, "SlideRight");
-
-        //slideRight.setDirection(DcMotorSimple.Direction.REVERSE);
-        slideLeft.setDirection(DcMotorSimple.Direction.REVERSE);
-
-
-        // set motor direction
         motorFrontLeft.setDirection(DcMotorSimple.Direction.FORWARD);
         motorFrontRight.setDirection(DcMotorSimple.Direction.REVERSE);
         motorBackLeft.setDirection(DcMotorSimple.Direction.FORWARD);
         motorBackRight.setDirection(DcMotorSimple.Direction.REVERSE);
 
+        motorSlideLeft = hardwareMap.get(DcMotorEx.class, "SlideLeft");
+        motorSlideRight = hardwareMap.get(DcMotorEx.class, "SlideRight");
 
-        // set zero power behavior
-        motorFrontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        motorFrontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        motorBackLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        motorBackRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motorSlideLeft.setDirection(DcMotorSimple.Direction.FORWARD);
+        motorSlideRight.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        clawArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motorSlideLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motorSlideRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
-        clawArm.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motorSlideLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motorSlideRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        clawArm.setDirection(DcMotorSimple.Direction.REVERSE);
+        motorClawArm = hardwareMap.get(DcMotorEx.class, "Arm");
 
-        clawArm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        clawArm.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motorClawArm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motorClawArm.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+        motorClawArm.setDirection(DcMotorSimple.Direction.FORWARD);
+
+        servoClawGrabber =  hardwareMap.get(Servo.class, "Grabber");
+        servoClawExtend = hardwareMap.get(Servo.class, "Extender");
+
+        odometry = hardwareMap.get(GoBildaPinpointDriver.class, "Odometry");
+        odometry.setOffsets(-124, -150); // don't know how to get these offsets yet
+        odometry.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.FORWARD);
+        odometry.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_SWINGARM_POD);
+        odometry.resetPosAndIMU();
+
+        bot = new Robot(odometry);
+        //bot.setDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.FORWARD);
+        //bot.setMotors(motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight);
+
+        //bot = new Robot();
+        bot.setMotors(motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight, motorSlideLeft, motorSlideRight, motorClawArm);
+        bot.setServos(servoClawGrabber, servoClawExtend);
+        bot.setSpeed(0.4);
+        bot.reset();
+
+        waitForStart();
 
         waitForStart();
     }
@@ -552,6 +584,7 @@ public class TestMode extends LinearOpMode
         initialize();
         while(opModeIsActive())
         {
+            driverDPad();
             drive();
             claw();
             extend();
@@ -559,6 +592,20 @@ public class TestMode extends LinearOpMode
             slides();
             //extra();
             showTelemetry();
+
+            rotateReturn = bot.navRotate(orientationTarget);
+            distanceToTargetOrientation = rotateReturn[0];
+            orientationTarget = rotateReturn[1];
+
+            if(orientationTarget < 0)
+            {
+                positionReturn = bot.navToPosition(positionXTarget, positionYTarget, positionOrientationTarget);
+                distanceToTargetPosition = positionReturn[0];
+                positionXTarget = positionReturn[1];
+            }
+
+            slideTarget = bot.slideToPosition(slideTarget);
+            armTarget = bot.armToPosition(armTarget);
         }
     }
 }
