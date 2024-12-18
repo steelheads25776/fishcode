@@ -54,8 +54,8 @@ public class AutonomousBlue extends OpMode
     double clawOpenPosition = 0.7;//left bumper
     double clawClosedPosition = 0.1;//right bumper
 
-    boolean step1, step2, step3, step4, step5 = false;
-    boolean step1Started, step2Started, step3Started, step4Started, step5Started = false;
+    boolean[] steps = new boolean[20];
+    boolean[] stepsStarted = new boolean[steps.length];
 
     public void showTelemetry()
     {
@@ -67,11 +67,13 @@ public class AutonomousBlue extends OpMode
         telemetry.addData("orientation target", orientationTarget);
         telemetry.addData("orientation distance to target", rotateReturn[0]);
         telemetry.addData("arm target", armTarget);
-        telemetry.addData("step1", step1);
-        telemetry.addData("step2", step2);
-        telemetry.addData("step3", step3);
-        telemetry.addData("step4", step4);
-        telemetry.addData("step5", step5);
+        telemetry.addData("slide power", motorSlideLeft.getPower());
+        telemetry.addData("slide target", slideTarget);
+        telemetry.addData("step1", steps[0]);
+        telemetry.addData("step2", steps[1]);
+        telemetry.addData("step3", steps[2]);
+        telemetry.addData("step4", steps[3]);
+        telemetry.addData("step5", steps[4]);
 
         bot.update();
         telemetry.update();
@@ -79,6 +81,12 @@ public class AutonomousBlue extends OpMode
 
     public void init()
     {
+        for(int i = 0; i < steps.length; i++)
+        {
+            steps[i] = false;
+            stepsStarted[i] = false;
+        }
+
         // setting hardware to variables
         motorFrontLeft = hardwareMap.get(DcMotor.class, "FrontLeft");
         motorFrontRight = hardwareMap.get(DcMotor.class, "FrontRight");
@@ -90,11 +98,19 @@ public class AutonomousBlue extends OpMode
         motorBackLeft.setDirection(DcMotorSimple.Direction.FORWARD);
         motorBackRight.setDirection(DcMotorSimple.Direction.REVERSE);
 
+        motorFrontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motorFrontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motorBackLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motorBackRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
         motorSlideLeft = hardwareMap.get(DcMotorEx.class, "SlideLeft");
         motorSlideRight = hardwareMap.get(DcMotorEx.class, "SlideRight");
 
-        motorSlideLeft.setDirection(DcMotorSimple.Direction.FORWARD);
-        motorSlideRight.setDirection(DcMotorSimple.Direction.REVERSE);
+        motorSlideLeft.setDirection(DcMotorSimple.Direction.REVERSE);
+        motorSlideRight.setDirection(DcMotorSimple.Direction.FORWARD);
+
+        motorSlideLeft.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
+        motorSlideRight.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
 
         motorSlideLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motorSlideRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -127,6 +143,15 @@ public class AutonomousBlue extends OpMode
         bot.setServos(servoClawGrabber, servoClawExtend);
         bot.setSpeed(0.4);
         bot.reset();
+
+        armTarget = 2500;
+        servoClawExtend.setPosition(armRetractedPosition);
+        servoClawGrabber.setPosition(clawOpenPosition);
+    }
+
+    public void init_loop()
+    {
+        armTarget = bot.armToPosition(armTarget);
     }
 
     public void start()
@@ -174,25 +199,35 @@ public class AutonomousBlue extends OpMode
         slideTarget = bot.slideToPosition(slideTarget);
         armTarget = bot.armToPosition(armTarget);
 
-        if(step1 == false && step1Started == false)
+        if(steps[0] == false && stepsStarted[0] == false)
         {
+            servoClawGrabber.setPosition(clawClosedPosition);
+            orientationTarget = 0;
             positionXTarget = 0;
-            positionYTarget = 1000;
-            step1Started = true;
+            positionYTarget = 700;
+            positionOrientationTarget = 0;
+            slideTarget = 930;
+            stepsStarted[0] = true;
         }
-        else if(step1 == false && positionXTarget < -9999)
+        else if(steps[0] == false && positionXTarget < -9999 && slideTarget <= -1)
         {
-            step1 = true;
+            steps[0] = true;
         }
 
-        if(step2 == false && step1 == true && step2Started == false)
+        if(steps[1] == false && steps[0] == true && stepsStarted[1] == false)
         {
-            orientationTarget = 180;
-            step2Started = true;
+            armTarget = 1500;
+            stepsStarted[1] = true;
         }
-        else if(step2 == false && step1 == true && orientationTarget < 0)
+        else if(steps[1] == false && steps[0] == true && armTarget <= -1)
         {
-            step2 = true;
+            steps[1] = true;
+        }
+
+        if(steps[2] == false && steps[1] == true)
+        {
+
+            stepsStarted[2] = true;
         }
 
     }
