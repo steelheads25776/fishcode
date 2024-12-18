@@ -23,8 +23,8 @@ public class TestMode extends LinearOpMode
     Robot bot;
 
     double motorspeed = 1.0;
-    double rotateSpeed = 0.75;
-    double slowRotateSpeed = 0.35;
+    double rotateSpeed = 1.00;
+    double slowRotateSpeed = 0.55;
     double motorspeedhigh = 1.0;
     double motorspeednormal = 0.65;
     double motorspeedslower = 0.25;
@@ -206,35 +206,52 @@ public class TestMode extends LinearOpMode
         triggerLeft = gamepad1.left_trigger;
         triggerRight = gamepad1.right_trigger;
 
-
-        if(stickLeftX == 0.0 && stickLeftY == 0.0)
+        if(armDpadDown || armDpadLeft || armDpadRight || armDpadUp)
         {
-            rotateMode = "slow";
-            motorFrontLeft.setPower((stickRightX * slowRotateSpeed) * -1);
-            motorFrontRight.setPower((stickRightX * slowRotateSpeed) );
-            motorBackLeft.setPower((stickRightX * slowRotateSpeed) * -1);
-            motorBackRight.setPower((stickRightX * slowRotateSpeed));
+            //dont move when arm dpad is pressed
         }
-
-
         else
         {
-            rotateMode = "fast";
-            double denominator = Math.max((Math.abs(stickLeftX) + Math.abs(stickLeftY) + Math.abs(stickRightX * rotateSpeed)), 1.0);
-            motorFrontLeft.setPower(((stickLeftY - stickLeftX - (stickRightX * rotateSpeed)) / denominator) * motorspeed);
-            motorFrontRight.setPower(((stickLeftY + stickLeftX + (stickRightX* rotateSpeed)) / denominator) * motorspeed);
-            motorBackLeft.setPower(((stickLeftY + stickLeftX - (stickRightX* rotateSpeed)) / denominator) * motorspeed);
-            motorBackRight.setPower(((stickLeftY - stickLeftX + (stickRightX * rotateSpeed)) / denominator) * motorspeed);
+
+            if(stickLeftX == 0.0 && stickLeftY == 0.0)
+            {
+                double rotationSpeed = slowRotateSpeed;
+                if(triggerLeft > 0.1)
+                {
+                    rotationSpeed = motorspeedhigh;
+                }
+                else if(triggerRight > 0.1)
+                {
+                    rotationSpeed = motorspeedslower;
+                }
+
+                rotateMode = "slow";
+                motorFrontLeft.setPower((stickRightX * rotationSpeed) * -1);
+                motorFrontRight.setPower((stickRightX * rotationSpeed) );
+                motorBackLeft.setPower((stickRightX * rotationSpeed) * -1);
+                motorBackRight.setPower((stickRightX * rotationSpeed));
+            }
+            else
+            {
+                rotateMode = "fast";
+                double denominator = Math.max((Math.abs(stickLeftX) + Math.abs(stickLeftY) + Math.abs(stickRightX * rotateSpeed)), 1.0);
+                motorFrontLeft.setPower(((stickLeftY - stickLeftX - (stickRightX * rotateSpeed)) / denominator) * motorspeed);
+                motorFrontRight.setPower(((stickLeftY + stickLeftX + (stickRightX* rotateSpeed)) / denominator) * motorspeed);
+                motorBackLeft.setPower(((stickLeftY + stickLeftX - (stickRightX* rotateSpeed)) / denominator) * motorspeed);
+                motorBackRight.setPower(((stickLeftY - stickLeftX + (stickRightX * rotateSpeed)) / denominator) * motorspeed);
+            }
         }
 
         if(triggerLeft >= 0.1)
         {
             motorspeed = motorspeedhigh;
+
         }
 
         else if(triggerRight >= 0.1)
         {
             motorspeed = motorspeedslower;
+
         }
 
         else
@@ -314,7 +331,7 @@ public class TestMode extends LinearOpMode
 
         if(armTriggerRight > 0.1)
         {
-            servoPosition = servoPosition + 0.01;
+            servoPosition = servoPosition + (armTriggerRight * 0.03);//servoPosition + 0.02
 
             if(servoPosition > armExtendedPosition)
             {
@@ -323,26 +340,10 @@ public class TestMode extends LinearOpMode
 
             servoClawExtend.setPosition(servoPosition);
         }
-        /*
-        if(armTriggerRight == 1.0 && !hitR)
-        {
-            if(timerR.milliseconds() < 250)
-            {
-                servoPosition = armExtendedPosition;
-                clawExtend.setPosition(armExtendedPosition);
-            }
-            hitR = true;
-        }
 
-        else if(armTriggerRight != 1.0)
-        {
-            hitR = false;
-            timerR.reset();
-        }
-        */
         if(armTriggerLeft > 0.1)
         {
-            servoPosition = servoPosition - 0.01;
+            servoPosition = servoPosition - (armTriggerLeft * 0.03);//servoPosition - 0.02
 
             if(servoPosition < armRetractedPosition)
             {
@@ -375,10 +376,16 @@ public class TestMode extends LinearOpMode
 
     public void rotate()
     {
-
         armRightStickY = gamepad2.right_stick_y;
-        motorClawArm.setPower((armRightStickY * armRotateSpeed));
-
+        if(armRightStickY == 0 && armTarget > -1.0)
+        {
+            // do nothing - arm is moving
+        }
+        else
+        {
+            armTarget = -1;
+            motorClawArm.setPower((armRightStickY * armRotateSpeed) * -1);
+        }
         /*
         if(clawArm.getCurrentPosition() > clawArmRestingPosition && slideLeft.getCurrentPosition() <= 15)
         {
@@ -415,68 +422,72 @@ public class TestMode extends LinearOpMode
     {
         armLeftStickY = gamepad2.left_stick_y;
 
-        if(motorSlideLeft.getCurrentPosition() < slideSlowZone)
+        if(armLeftStickY == 0 && slideTarget > -1.0)
         {
-            if(armLeftStickY != 0.0)
+            // do nothing - slide is moving
+        }
+        else
+        {
+            slideTarget = -1.0;
+            if (motorSlideLeft.getCurrentPosition() < slideSlowZone)
             {
-                if(armLeftStickY > 0)//down
+                if (armLeftStickY != 0.0)
                 {
-                    motorSlideLeft.setPower(armLeftStickY * (slidePower * 0.2));
-                    motorSlideRight.setPower(armLeftStickY * (slidePower * 0.2));
+                    if (armLeftStickY > 0)//down
+                    {
+                        motorSlideLeft.setPower(armLeftStickY * (slidePower * 0.35));
+                        motorSlideRight.setPower(armLeftStickY * (slidePower * 0.35));
+                    }
+                    else//up
+                    {
+                        motorSlideLeft.setPower(armLeftStickY * slidePower);
+                        motorSlideRight.setPower(armLeftStickY * slidePower);
+                    }
+
+                    slidePosition = motorSlideLeft.getCurrentPosition();
                 }
-                else//up
+                else
+                {
+                    if (motorSlideLeft.getCurrentPosition() >= brakeActivePosition)
+                    {
+                        motorSlideLeft.setPower(brakePower);
+                        motorSlideRight.setPower(brakePower);
+
+//                        if (motorSlideLeft.getCurrentPosition() < (slidePosition - 5))//up
+//                        {
+//                            brakePower = brakePower - 0.01;
+//                            motorSlideLeft.setPower(brakePower);
+//                            motorSlideRight.setPower(brakePower);
+//                        }
+//                        else if (motorSlideLeft.getCurrentPosition() > (slidePosition + 5))//down
+//                        {
+//                            brakePower = brakePower + 0.01;
+//                            motorSlideLeft.setPower(brakePower);
+//                            motorSlideRight.setPower(brakePower);
+//                        }
+
+                    }
+
+                }
+
+            }
+            else
+            {
+                if (armLeftStickY != 0.0)
                 {
                     motorSlideLeft.setPower(armLeftStickY * slidePower);
                     motorSlideRight.setPower(armLeftStickY * slidePower);
                 }
-
-                slidePosition = motorSlideLeft.getCurrentPosition();
-            }
-            else
-            {
-                if (motorSlideLeft.getCurrentPosition() >= brakeActivePosition)
+                else
                 {
-                    motorSlideLeft.setPower(brakePower);
-                    motorSlideRight.setPower(brakePower);
-
-                    if(motorSlideLeft.getCurrentPosition() < (slidePosition - 5))
+                    if (motorSlideLeft.getCurrentPosition() >= brakeActivePosition)
                     {
-                        brakePower = brakePower - 0.01;
                         motorSlideLeft.setPower(brakePower);
                         motorSlideRight.setPower(brakePower);
                     }
-
-                    else if(motorSlideLeft.getCurrentPosition() > (slidePosition + 5))
-                    {
-                        brakePower = brakePower + 0.01;
-                        motorSlideLeft.setPower(brakePower);
-                        motorSlideRight.setPower(brakePower);
-                    }
-
-                }
-
-            }
-
-        }
-
-        else
-        {
-            if(armLeftStickY != 0.0)
-            {
-                motorSlideLeft.setPower(armLeftStickY * slidePower);
-                motorSlideRight.setPower(armLeftStickY * slidePower);
-            }
-
-            else
-            {
-                if (motorSlideLeft.getCurrentPosition() >= brakeActivePosition)
-                {
-                    motorSlideLeft.setPower(brakePower);
-                    motorSlideRight.setPower(brakePower);
                 }
             }
         }
-
 
 
     }
@@ -484,6 +495,7 @@ public class TestMode extends LinearOpMode
     public void showTelemetry()
     {
         armLeftStickY = gamepad2.left_stick_y;
+        armRightStickY = gamepad2.right_stick_y;
 
         //telemetry.addData("clawArm:", clawArm.getCurrentPosition());
 
@@ -511,12 +523,15 @@ public class TestMode extends LinearOpMode
         //telemetry.addData("odometry Radians", odometry.getHeading());
         telemetry.addData("odometry Degrees", (odometry.getHeading() * (180 / Math.PI)));
 
+
         telemetry.addData("odometry velocity X", odometry.getVelX());
         telemetry.addData("odometry velocity Y", odometry.getVelY());
         //telemetry.addData("odometry velocity Radians", odometry.getHeadingVelocity());
         telemetry.addData("odometry velocity Degrees", (odometry.getHeadingVelocity() * (180 / Math.PI)));
         telemetry.addData("arm current position", motorClawArm.getCurrentPosition());
         telemetry.addData("slide position", motorSlideLeft.getCurrentPosition());
+        telemetry.addData("arm left stick y", armLeftStickY);
+        telemetry.addData("arm right stick y", armRightStickY);
         odometry.update();
 
         telemetry.update();
@@ -535,14 +550,24 @@ public class TestMode extends LinearOpMode
         motorBackLeft.setDirection(DcMotorSimple.Direction.FORWARD);
         motorBackRight.setDirection(DcMotorSimple.Direction.REVERSE);
 
+        motorFrontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motorFrontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motorBackLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        motorBackRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
+        //motorClawArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
         motorSlideLeft = hardwareMap.get(DcMotorEx.class, "SlideLeft");
         motorSlideRight = hardwareMap.get(DcMotorEx.class, "SlideRight");
 
-        motorSlideLeft.setDirection(DcMotorSimple.Direction.FORWARD);
-        motorSlideRight.setDirection(DcMotorSimple.Direction.REVERSE);
+        motorSlideLeft.setDirection(DcMotorSimple.Direction.REVERSE);
+        motorSlideRight.setDirection(DcMotorSimple.Direction.FORWARD);
 
         motorSlideLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motorSlideRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        motorSlideLeft.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
+        motorSlideRight.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
 
         motorSlideLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         motorSlideRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -573,7 +598,7 @@ public class TestMode extends LinearOpMode
         bot.setSpeed(0.4);
         bot.reset();
 
-        waitForStart();
+        servoClawExtend.setPosition(armRetractedPosition);
 
         waitForStart();
     }
@@ -604,7 +629,7 @@ public class TestMode extends LinearOpMode
                 positionXTarget = positionReturn[1];
             }
 
-            slideTarget = bot.slideToPosition(slideTarget);
+            //slideTarget = bot.slideToPosition(slideTarget);
             armTarget = bot.armToPosition(armTarget);
         }
     }
