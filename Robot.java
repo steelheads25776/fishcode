@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.opencv.core.Mat;
@@ -29,9 +30,15 @@ public class Robot
 
     public double targetDistance = 0.0;
 
+    public double distanceToTargetPrevious = 1000.0;
+    public double distanceTraveledFromPrevious = 0.0;
+
     public double currentDeg = 0.0;
 
     public double YStoppedPosition = 0.0;
+
+    public double voltageStart = 0.0;
+    public int rotateCorrections = 0;
 
     public Robot(GoBildaPinpointDriver pod)
     {
@@ -68,7 +75,6 @@ public class Robot
         motorSlideLeft = sl;
         motorSlideRight = sr;
         motorClawArm = arm;
-
     }
 
     public void setServos(Servo cg, Servo ce)
@@ -177,7 +183,7 @@ public class Robot
         motorBackRight.setPower(0.0);
     }
 
-    public double[] navRotate(double orientationTarget)
+    public double[] navRotate(double orientationTarget, String rotationDirection, double rotationErrorTolerance)
     {
         double orientationCurrent;
         double distanceToTarget = 0.0;
@@ -186,10 +192,22 @@ public class Robot
         {
             odometry.update();
 
-            double errorTolerance = .5; // rotation stops if +- this value in degrees
-            double distanceToSlow = 60; // slow rotational speed on linear function if below this value
-            double rotatePowerMin = 0.2; // set the minimum rotation speed
+            //double errorTolerance = 2; // rotation stops if +- this value in degrees
+            double distanceToSlow = 40; // slow rotational speed on linear function if below this value
 
+            double rotatePowerMin = 0.10; // set the minimum rotation speed
+            if (voltageStart > 13)
+            {
+                rotatePowerMin = 0.08;
+            }
+            else if (voltageStart >= 12.8)
+            {
+                rotatePowerMin = 0.09;
+            }
+            if (rotationErrorTolerance > 2.0)
+            {
+                rotatePowerMin = 0.15;
+            }
             orientationCurrent = getOrientationCurrent();  //function call - converts value to 0 - 359.99
 
             double rotatePowerMax = 1.0;
@@ -206,9 +224,10 @@ public class Robot
                 distanceToTarget = distanceToTarget - 360;
             }
 
-            if (Math.abs(distanceToTarget) < errorTolerance)
+            if (Math.abs(distanceToTarget) <= rotationErrorTolerance)
             {
                 // stop rotation if still within error after short sleep
+                rotationDirection = "none";
                 sleep(200);
                 odometry.update();
                 distanceToTarget = orientationTarget - getOrientationCurrent();
@@ -222,7 +241,7 @@ public class Robot
                 {
                     distanceToTarget = distanceToTarget - 360;
                 }
-                if (Math.abs(distanceToTarget) < errorTolerance)
+                if (Math.abs(distanceToTarget) <= rotationErrorTolerance || rotateCorrections >= 3)
                 {
                     orientationTarget = -1.0;
 
@@ -230,6 +249,7 @@ public class Robot
                     motorFrontRight.setPower(0.0);
                     motorBackLeft.setPower(0.0);
                     motorBackRight.setPower(0.0);
+                    //test = 1;
                 }
                 else
                 {
@@ -239,18 +259,50 @@ public class Robot
             else if (Math.abs(distanceToTarget) < 8.0)
             {
                 // slow when close to target
+                rotationDirection = "none";
                 rotatePower = rotatePowerMin;
+                if (Math.abs(distanceToTarget) < rotationErrorTolerance + 1)
+                {
+                    rotateCorrections++;
+                }
+                else
+                {
+                    rotateCorrections = 0;
+                }
             }
-            else if (Math.abs(distanceToTarget) < distanceToSlow)
+            else if (Math.abs(distanceToTarget) <= distanceToSlow)
             {
+                if ((Math.abs(odometry.getHeadingVelocity() * (180 / Math.PI)) < 5) && Math.abs(distanceToTarget) > 10)
+                {
+                    rotatePower = 1.0;
+                }
+                else
+                {
+                    rotatePowerMax = 0.5;
+                }
+                rotationDirection = "none";
                 // slow rotation using linear function based on distanceToTarget
-                rotatePower = (rotatePowerMax * (1.0 - rotatePowerMin) * (Math.abs(distanceToTarget)/distanceToSlow))
-                        + rotatePowerMin;
+                if (Math.abs(odometry.getHeadingVelocity() * (180 / Math.PI)) > 120)
+                {
+                    rotatePower = 0;
+                }
+                else
+                {
+                    if (Math.abs(odometry.getHeadingVelocity() * (180 / Math.PI)) < 5)
+                    {
+                        rotatePowerMin = 0.15;
+                    }
+                    rotatePower = ((rotatePowerMax - rotatePowerMin) * (Math.abs(distanceToTarget) / distanceToSlow)) + rotatePowerMin;
+                }
+            }
+            else
+            {
+                //test = -1;
             }
 
             if(orientationTarget >= 0) // this value is set to -1.0 to end rotation
             {
-                if (distanceToTarget < 0)
+                if ((distanceToTarget < 0 && rotationDirection == "none") || rotationDirection == "counterclockwise")
                 {
                     // rotate counterclockwise
                     rotatePower = rotatePower * -1.0;
@@ -260,6 +312,8 @@ public class Robot
                 motorFrontRight.setPower(rotatePower);
                 motorBackLeft.setPower(-rotatePower);
                 motorBackRight.setPower(rotatePower);
+
+                //test = 0;
             }
         }
         double[] rotateReturn = new double[2];
@@ -270,79 +324,112 @@ public class Robot
 
     public double slideToPosition(double slideTarget)
     {
-        double slideCurrent = motorSlideLeft.getCurrentPosition() * (-1.0);
+        double slideCurrent = motorSlideLeft.getCurrentPosition();
         double errorTolerance = 20;
         double distanceToSlow = 100;
 
-        test = slideCurrent;
         if (slideTarget > -1.0)
         {
-            if (Math.abs(slideTarget - slideCurrent) < errorTolerance)
+            if (Math.abs(slideTarget - slideCurrent) <= errorTolerance)
             {
-                motorSlideLeft.setPower(brakePower);
-                motorSlideRight.setPower(brakePower);
+                motorSlideLeft.setPower(brakePower * -1.0);
+                motorSlideRight.setPower(brakePower * -1.0);
                 slideTarget = -1.0;
             }
-            else if (Math.abs(slideTarget - slideCurrent) < distanceToSlow)
+            else if (Math.abs(slideTarget - slideCurrent) <= distanceToSlow)
             {
                 if (slideTarget < slideCurrent) //move down
                 {
-                    motorSlideLeft.setPower(0.0 - ((Math.abs(slideTarget - slideCurrent) / 100) * -0.2));
-                    motorSlideRight.setPower(0.0 - ((Math.abs(slideTarget - slideCurrent) / 100) * -0.2));
+                    motorSlideLeft.setPower(0.0 + ((Math.abs(slideTarget - slideCurrent) / 100) * 0.2));
+                    motorSlideRight.setPower(0.0 + ((Math.abs(slideTarget - slideCurrent) / 100) * 0.2));
+                    //test = -1;
                 }
                 else
                 {
-                    motorSlideLeft.setPower(0.5 + ((Math.abs(slideTarget - slideCurrent) / 100) * 0.5));
-                    motorSlideRight.setPower(0.5 + ((Math.abs(slideTarget - slideCurrent) / 100) * 0.5));
+                    motorSlideLeft.setPower(-0.7 + ((Math.abs(slideTarget - slideCurrent) / 100) * 0.5));
+                    motorSlideRight.setPower(-0.7 + ((Math.abs(slideTarget - slideCurrent) / 100) * 0.5));
+                    //test = 1;
                 }
             }
             else
             {
                 if (slideTarget < slideCurrent) //move down
                 {
-                    motorSlideLeft.setPower(-0.4);
-                    motorSlideRight.setPower(-0.4);
+                    motorSlideLeft.setPower(0.4);
+                    motorSlideRight.setPower(0.4);
+                    //test = -2;
                 }
                 else
                 {
-                    motorSlideLeft.setPower(0.8);
-                    motorSlideRight.setPower(0.8);
+                    motorSlideLeft.setPower(-0.8);
+                    motorSlideRight.setPower(-0.8);
+                    //test = 2;
                 }
 
             }
 
         }
-        else
+        else if (slideTarget > -2.0) // gamepad2.left_stick_y engaged
         {
             if (motorSlideLeft.getCurrentPosition() >= brakeActivePosition)
             {
-                motorSlideLeft.setPower(brakePower);
-                motorSlideRight.setPower(brakePower);
+                motorSlideLeft.setPower(brakePower * -1.0);
+                motorSlideRight.setPower(brakePower * -1.0);
+                //test = -10;
             }
         }
 
         return slideTarget;
     }
 
-    public double armToPosition(double armTarget)
+    public double armToPosition(double armTarget, boolean noSlow)
     {
         double armCurrent = motorClawArm.getCurrentPosition();
-        double errorTolerance = 15;
+        double errorTolerance = 30;
         double armPower = 1.0;
-        if (armTarget > -1.0)
+        int distanceToSlow = 200;
+
+        if (armTarget > -10000)
         {
-            test = armCurrent;
-            if (Math.abs(armTarget - armCurrent) < errorTolerance)
+            if (Math.abs(armTarget - armCurrent) <= errorTolerance)
             {
                 motorClawArm.setPower(0.0);
-                armTarget = -1.0;
+                sleep(100);
+                armCurrent = motorClawArm.getCurrentPosition();
+                if (Math.abs(armTarget - armCurrent) <= errorTolerance)
+                {
+                    armTarget = -10000;
+                }
+            }
+            else if (Math.abs(armTarget - armCurrent) <= distanceToSlow)
+            {
+                armPower = 0.4;
+                if(noSlow == false)
+                {
+                    if (armTarget < armCurrent) //move down
+                    {
+                        motorClawArm.setPower(-0.1 - ((Math.abs(armTarget - armCurrent) / distanceToSlow) * armPower));
+                        //motorClawArm.setPower(-0.2 - ((Math.abs(armTarget - armCurrent) / 100) * 0.8));
+                        //test = -1;
+                    }
+                    else
+                    {
+                        motorClawArm.setPower(0.1 + ((Math.abs(armTarget - armCurrent) / distanceToSlow) * armPower));
+                        //motorClawArm.setPower(0.2 + ((Math.abs(armTarget - armCurrent) / 100) * 0.8));
+                        //test = 1;
+                    }
+                }
+                else
+                {
+                    armPower = 1.0;
+                    motorClawArm.setPower(armPower);
+                }
             }
             else
             {
                 if (armTarget > armCurrent)
                 {
                     motorClawArm.setPower(armPower);
-
                 }
                 else
                 {
@@ -353,32 +440,45 @@ public class Robot
         else
         {
             motorClawArm.setPower(0.0);
-            armTarget = -1.0;
+            armTarget = -10000;
         }
 
         return armTarget;
     }
 
 
-    public double[] navToPosition(double positionXTarget, double positionYTarget, double positionOrientationTarget) //X is forward - Y is strafe (left is positive)
+    public double[] navToPosition(double positionXTarget, double positionYTarget, double positionOrientationTarget, boolean positionPrecise) //X is forward - Y is strafe (left is positive)
     {
         double distanceToTarget = 0.0;
 
-        if (positionXTarget > -10000) // less than -10000 means no target
+        if (positionXTarget > -10000) // -10000 means no target
         {
             odometry.update();
 
-            double powerMax = 0.5;
-            double powerMin = 0.2;
+            double powerMax = 0.9;
+            double powerMin = 0.20;
+
+            if (voltageStart > 13)
+            {
+                powerMax = 0.8;
+                powerMin = 0.15;
+            }
+            else if (voltageStart >= 12.8)
+            {
+                powerMax = 0.85;
+                powerMin = 0.18;
+            }
+
             double powerX = 0.0; // -1.0 - +1.0
             double powerY = 0.0; // -1.0 - +1.0
-            double powerRotateMax = 0.6;
+            double powerRotateMax = 0.7;
             double powerRotate = 0.0; // -1.0 - +1.0
             double denominator = 1;
 
             double positionXCurrent = getX();
             double positionYCurrent = getY();
             double positionOrientationCurrent = getOrientationCurrent();
+            boolean waypointPast = false;
 
             double distanceToTargetOrientation = positionOrientationTarget - positionOrientationCurrent;
             // distanceToTarget gets converted to values between +180 to -180
@@ -391,16 +491,17 @@ public class Robot
                 distanceToTargetOrientation = distanceToTargetOrientation - 360;
             }
 
-            if(Math.abs(distanceToTargetOrientation) > 0.5)
+            if(Math.abs(distanceToTargetOrientation) > 1)
             {
                 powerRotate = distanceToTargetOrientation / 5.0;
                 if (powerRotate > 1.0)
                 {
                     powerRotate = 1.0;
                 }
+                powerRotate = 0.0;
             }
 
-            double distanceToSlow = 500;
+            double distanceToSlow = 200;
             double errorTolerance = 20;
 
             double motorPower = powerMax;
@@ -410,31 +511,71 @@ public class Robot
 
             if (disanceToTargetX >= disanceToTargetY)
             {
-                powerX = disanceToTargetX / Math.abs(disanceToTargetX);
+                powerX = (disanceToTargetX / Math.abs(disanceToTargetX)) * 1.2;
                 powerY = disanceToTargetY / Math.abs(disanceToTargetX);
             }
             else
             {
-                powerX = disanceToTargetX / Math.abs(disanceToTargetY);
+                powerX = (disanceToTargetX / Math.abs(disanceToTargetY)) * 1.2;
                 powerY = disanceToTargetY / Math.abs(disanceToTargetY);
             }
 
             distanceToTarget = Math.sqrt((Math.pow((positionXTarget - positionXCurrent), 2)) + (Math.pow((positionYTarget - positionYCurrent), 2)));
+            test = distanceToTargetPrevious;
+            if(distanceToTarget > distanceToTargetPrevious)
+            {
+                waypointPast = true;
+                //test = 99999;
+            }
+            distanceTraveledFromPrevious = Math.abs(distanceToTarget - distanceToTargetPrevious);
+            distanceToTargetPrevious = distanceToTarget;
+
             if (distanceToTarget < distanceToSlow)
             {
+                powerMax = 0.4;
+                double powerUsed = powerMin;
                 // slow down
-                motorPower = ((powerMax - powerMin) * (distanceToTarget / distanceToSlow)) + powerMin;
+
+                if (Math.abs(positionXTarget - positionXCurrent) > Math.abs(positionYTarget - positionYCurrent))
+                {
+                    powerUsed = powerMin + .05;
+                }
+                if (positionPrecise)
+                {
+                    if (distanceToTarget < 100)
+                    {
+                        motorPower = powerUsed;
+                    }
+                    else
+                    {
+                        motorPower = ((powerMax - powerUsed) * (distanceToTarget / distanceToSlow)) + powerUsed;
+                    }
+                }
             }
 
             if (distanceToTarget > errorTolerance)
             {
                 powerY = powerY * (-1.0);
 
-                denominator = Math.max((Math.abs(powerX) + Math.abs(powerY) + Math.abs(powerRotate * powerRotateMax)), 1.0);
-                motorFrontLeft.setPower(((powerY - powerX - (powerRotate * powerRotateMax)) * motorPower) / denominator);
-                motorFrontRight.setPower(((powerY + powerX + (powerRotate * powerRotateMax)) * motorPower) / denominator);
-                motorBackLeft.setPower(((powerY + powerX - (powerRotate * powerRotateMax)) * motorPower) / denominator);
-                motorBackRight.setPower(((powerY - powerX + (powerRotate * powerRotateMax)) * motorPower) / denominator);
+                if (positionPrecise == false && (distanceToTarget < 100 || waypointPast == true))
+                {
+                    positionXTarget = -10000.0;
+                    positionYTarget = -10000.0;
+                    distanceToTargetPrevious = 1000;
+                    waypointPast = false;
+                }
+                else
+                {
+                    if (distanceTraveledFromPrevious > 15 && distanceToTarget < distanceToSlow && positionPrecise == true)
+                    {
+                        motorPower = -0.1;
+                    }
+                    denominator = Math.max((Math.abs(powerX) + Math.abs(powerY) + Math.abs(powerRotate * powerRotateMax)), 1.0);
+                    motorFrontLeft.setPower(((powerY - powerX - (powerRotate * powerRotateMax)) * motorPower) / denominator);
+                    motorFrontRight.setPower(((powerY + powerX + (powerRotate * powerRotateMax)) * motorPower) / denominator);
+                    motorBackLeft.setPower(((powerY + powerX - (powerRotate * powerRotateMax)) * motorPower) / denominator);
+                    motorBackRight.setPower(((powerY - powerX + (powerRotate * powerRotateMax)) * motorPower) / denominator);
+                }
             }
             else
             {
