@@ -25,6 +25,7 @@ public class RobotTest extends LinearOpMode
     double orientationTarget = -1.0;  // -1.0 means no rotation
     double distanceToTargetOrientation = 0.0;
     double positionOrientationTarget = 0.0;
+    double rotationErrorTolerance = 1.0;
     double positionXTarget = -10000.0;
     double positionYTarget = -10000.0;
     double distanceToTargetPosition = 0.0;
@@ -40,7 +41,7 @@ public class RobotTest extends LinearOpMode
 
     double motorspeed = 1.0;
     double rotateSpeed = 0.75;
-    double slowRotateSpeed = 0.35;
+    double slowRotateSpeed = 0.55;
     double motorspeedhigh = 1.0;
     double motorspeednormal = 0.5;
     double motorspeedslower = 0.25;
@@ -60,8 +61,8 @@ public class RobotTest extends LinearOpMode
         motorBackLeft = hardwareMap.get(DcMotor.class, "BackLeft");
         motorBackRight = hardwareMap.get(DcMotor.class, "BackRight");
 
-        motorFrontLeft.setDirection(DcMotorSimple.Direction.FORWARD);
-        motorFrontRight.setDirection(DcMotorSimple.Direction.REVERSE);
+        motorFrontLeft.setDirection(DcMotorSimple.Direction.REVERSE);
+        motorFrontRight.setDirection(DcMotorSimple.Direction.FORWARD);
         motorBackLeft.setDirection(DcMotorSimple.Direction.FORWARD);
         motorBackRight.setDirection(DcMotorSimple.Direction.REVERSE);
 
@@ -324,19 +325,19 @@ public class RobotTest extends LinearOpMode
         while(opModeIsActive())
         {
             drive();
-            rotateReturn = bot.navRotate(orientationTarget);
+            rotateReturn = bot.navRotate(orientationTarget, "none", rotationErrorTolerance);
             distanceToTargetOrientation = rotateReturn[0];
             orientationTarget = rotateReturn[1];
 
             if(orientationTarget < 0)
             {
-                positionReturn = bot.navToPosition(positionXTarget, positionYTarget, positionOrientationTarget);
+                positionReturn = bot.navToPosition(positionXTarget, positionYTarget, positionOrientationTarget, true);
                 distanceToTargetPosition = positionReturn[0];
                 positionXTarget = positionReturn[1];
             }
 
-            slideTarget = bot.slideToPosition(slideTarget);
-            armTarget = bot.armToPosition(armTarget);
+            //slideTarget = bot.slideToPosition(slideTarget);
+            armTarget = bot.armToPosition(armTarget, false);
 
             driverDPad();
             showTelemetry();
