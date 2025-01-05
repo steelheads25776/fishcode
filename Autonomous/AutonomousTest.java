@@ -233,10 +233,12 @@ public class AutonomousTest extends OpMode
             servoClawGrabber.setPosition(clawClosedPosition);
             orientationTarget = 0;
             positionXTarget = 0;
-            positionYTarget = 730;
+            positionYTarget = 700;
             positionOrientationTarget = 0;
+            bot.distanceToTargetPrevious = 1000;
             positionPrecise = true;
-            slideTarget = 930;
+            slideTarget = 1000;
+            armTarget = 2400;
             stepsStarted[0] = true;
         }
         else if(stepsStarted[0] == true && steps[0] == false && positionXTarget < -9999 && slideTarget <= -1)
@@ -247,7 +249,7 @@ public class AutonomousTest extends OpMode
         if(steps[0] == true && stepsStarted[1] == false)
         {
             // SPECIMEN 1 - move arm to lock specimen to bar
-            armTarget = 1600;
+            armTarget = 1550;
             stepsStarted[1] = true;
             timer.reset();
         }
@@ -259,6 +261,7 @@ public class AutonomousTest extends OpMode
         if(steps[1] == true && stepsStarted[2] == false)
         {
             // SPECIMEN 1 - release grabber and move toward sample 2 via waypoint
+            /*
             servoClawGrabber.setPosition(clawOpenPosition);
             bot.sleep(200);
             positionXTarget = 100;
@@ -269,6 +272,17 @@ public class AutonomousTest extends OpMode
             armTarget = 0;
             slideTarget = 0;
             stepsStarted[2] = true;
+             */
+            servoClawGrabber.setPosition(clawOpenPosition);
+            positionXTarget = 100;
+            positionYTarget = 500;
+            positionOrientationTarget = 0;
+            positionPrecise = false;
+            bot.distanceToTargetPrevious = 1000;
+            armTarget = 800;
+            slideTarget = 800;
+
+            stepsStarted[2] = true;
         }
         else if(stepsStarted[2] && steps[2] == false && positionXTarget < -9999)
         {
@@ -278,8 +292,10 @@ public class AutonomousTest extends OpMode
         if(steps[2] == true && stepsStarted[3] == false)
         {
             // SAMPLE 1 - move to lined up with sample 2
-            positionXTarget = 1300;
-            positionYTarget = 460;
+            armTarget = 0;
+            slideTarget = 0;
+            positionXTarget = 1280;
+            positionYTarget = 420;
             positionPrecise = true;
             stepsStarted[3] = true;
         }
@@ -293,11 +309,12 @@ public class AutonomousTest extends OpMode
             // SAMPLE 1 - rotate to lined up with sample 1 and extend arm to grab position
             orientationTarget = 330;
             rotationErrorTolerance = 1.5;
-            servoClawExtend.setPosition(armRetractedPosition + 0.25);
             stepsStarted[4] = true;
         }
         else if(stepsStarted[4] == true && steps[4] == false && orientationTarget < 0)
         {
+            servoClawExtend.setPosition(armRetractedPosition + 0.41);
+            bot.sleep(500);
             steps[4] = true;
         }
 
@@ -305,7 +322,7 @@ public class AutonomousTest extends OpMode
         {
             // SAMPLE 1 - grab sample 1, rotate to player area, and retract arm
             servoClawGrabber.setPosition(clawClosedPosition);
-            bot.sleep(250);
+            bot.sleep(500);
             servoClawExtend.setPosition(armRetractedPosition + 0.1);
             orientationTarget = 180;
             rotationDirection = "counterclockwise";
@@ -321,14 +338,11 @@ public class AutonomousTest extends OpMode
         {
             // SAMPLE 1 - release sample 1 and rotate sample 2 grab position
             servoClawGrabber.setPosition(clawOpenPosition);
-            bot.sleep(100);
-            servoClawExtend.setPosition(armRetractedPosition + 0.18);
-            orientationTarget = 0;
+            servoClawExtend.setPosition(armRetractedPosition);
+            bot.sleep(200);
+            orientationTarget = 5;
             rotationDirection = "clockwise";
             rotationErrorTolerance = 1.5;
-            //positionXTarget = 1300;
-            //positionYTarget = 450;
-            //positionPrecise = true;
             stepsStarted[6] = true;
         }
         else if(stepsStarted[6] == true && steps[6] == false && orientationTarget < 0) // && positionXTarget < -9999)
@@ -339,6 +353,8 @@ public class AutonomousTest extends OpMode
         if(steps[6] == true && stepsStarted[7] == false)
         {
             // SAMPLE 2 - grab sample 2 and rotate to player area
+            servoClawExtend.setPosition(armRetractedPosition + 0.25);
+            bot.sleep(400);
             servoClawGrabber.setPosition(clawClosedPosition);
             bot.sleep(250);
             servoClawExtend.setPosition(armRetractedPosition + 0.1);
@@ -350,8 +366,10 @@ public class AutonomousTest extends OpMode
         else if(stepsStarted[7] == true && steps[7] == false && orientationTarget < 0)
         {
             steps[7] = true;
-            steps[8] = true;
-            steps[9] = true;
+            steps[8] = true; // grab sample 3 is skipped
+            steps[9] = true; // grab sample 3 is skipped
+            stepsStarted[8] = true;
+            stepsStarted[9] = true;
         }
 
         if(steps[7] == true && stepsStarted[8] == false)
@@ -359,7 +377,7 @@ public class AutonomousTest extends OpMode
             // SAMPLE 2 - release sample 2, and rotate sample 3 grab position
             servoClawGrabber.setPosition(clawOpenPosition);
             bot.sleep(100);
-            servoClawExtend.setPosition(armRetractedPosition + 0.4);
+            servoClawExtend.setPosition(armRetractedPosition + 0.3);
             orientationTarget = 30;
             rotationDirection = "clockwise";
             rotationErrorTolerance = 1.5;
@@ -390,15 +408,19 @@ public class AutonomousTest extends OpMode
         if(steps[9] == true && stepsStarted[10] == false)
         {
             // SAMPLE 3 - release sample 3, lift slide to sample grab height, and extend arm to grab position
+            // since we skipped grabbing sample 3, this is actually sample 2
             servoClawGrabber.setPosition(clawOpenPosition);
-            servoClawExtend.setPosition(armRetractedPosition + 0.32);
-            slideTarget = 1000;
+            servoClawExtend.setPosition(armRetractedPosition);
+            bot.sleep(200);
+            slideTarget = 1150;
             orientationTarget = 180;
             rotationErrorTolerance = 1.5;
             stepsStarted[10] = true;
         }
         else if(stepsStarted[10] && steps[10] == false && slideTarget < 0)
         {
+            servoClawExtend.setPosition(armRetractedPosition + 0.26);
+            bot.sleep(400);
             steps[10] = true;
         }
 
@@ -406,9 +428,9 @@ public class AutonomousTest extends OpMode
         {
             // SPECIMEN 2 - grab specimen 2
             servoClawGrabber.setPosition(clawClosedPosition);
-            bot.sleep(200);
-            slideTarget = 1200;
-            armTarget = 2800;
+            bot.sleep(400);
+            slideTarget = 1500;
+            armTarget = 2400;
             stepsStarted[11] = true;
         }
         else if(stepsStarted[11] == true && steps[11] == false && slideTarget < 0)
@@ -418,76 +440,77 @@ public class AutonomousTest extends OpMode
 
         if(steps[11] == true && stepsStarted[12] == false)
         {
-            // SPECIMEN 2 - move to bar
+            // SPECIMEN 2 - rotate to bar
             orientationTarget = 0;
             rotationDirection = "clockwise";
             servoClawExtend.setPosition(armRetractedPosition);
-            positionXTarget = -100;
-            positionYTarget = 720;
-            positionOrientationTarget = 0;
-            positionPrecise = true;
-            slideTarget = 930;
+            rotationErrorTolerance = 4.0;
+            slideTarget = 1000;
             stepsStarted[12] = true;
         }
-        else if(stepsStarted[12] == true && steps[12] == false && orientationTarget < 0 && positionXTarget < -9999)
+        else if(stepsStarted[12] == true && steps[12] == false && orientationTarget < 0)
         {
             steps[12] = true;
-        }        
+        }
 
         if(steps[12] == true && stepsStarted[13] == false)
         {
-            // SPECIMEN 2 - move arm to lock specimen to bar
-            orientationTarget = 0;
-            armTarget = 1600;
+            // SPECIMEN 2 - move toward bar via waypoint
+            positionXTarget = 0;
+            positionYTarget = 200;
+            positionOrientationTarget = 0;
+            positionPrecise = false;
+            bot.distanceToTargetPrevious = 1000;
             stepsStarted[13] = true;
-            timer.reset();
         }
-        else if(stepsStarted[13] == true && steps[13] == false && timer.milliseconds() >= 500)
+        else if(stepsStarted[13] == true && steps[13] == false && positionXTarget < -9999)
         {
             steps[13] = true;
         }
 
         if(steps[13] == true && stepsStarted[14] == false)
         {
-            // SPECIMEN 2 - release grabber and move toward specimen 3 via waypoint
-            servoClawGrabber.setPosition(clawOpenPosition);
-            positionXTarget = 100;
-            positionYTarget = 400;
+            // SPECIMEN 2 - move to bar
+            orientationTarget = 0;
+            rotationErrorTolerance = 1.5;
+            positionXTarget = -100;
+            positionYTarget = 700;
             positionOrientationTarget = 0;
-            positionPrecise = false;
             bot.distanceToTargetPrevious = 1000;
-            armTarget = 0;
-            slideTarget = 800;
+            positionPrecise = true;
             stepsStarted[14] = true;
         }
-        else if(stepsStarted[14] == true && steps[14] == false && positionXTarget < -9999)
+        else if(stepsStarted[14] == true && steps[14] == false && orientationTarget < 0 && positionXTarget < -9999)
         {
             steps[14] = true;
-        }
+        }        
 
         if(steps[14] == true && stepsStarted[15] == false)
         {
-            // SPECIMEN 2 - release grabber and move toward specimen 3 via waypoint
-            servoClawGrabber.setPosition(clawOpenPosition);
-            bot.sleep(100);
-            positionYTarget = 450;
-            positionXTarget = 600;
-            positionPrecise = false;
-            bot.distanceToTargetPrevious = 1000;
+            // SPECIMEN 2 - move arm to lock specimen to bar
+            orientationTarget = 0;
+            rotationErrorTolerance = 1.5;
+            armTarget = 1550;
             stepsStarted[15] = true;
+            timer.reset();
         }
-        else if(stepsStarted[15] == true && steps[15] == false && positionXTarget < -9999)
+        else if(stepsStarted[15] == true && steps[15] == false && timer.milliseconds() >= 500)
         {
             steps[15] = true;
         }
 
         if(steps[15] == true && stepsStarted[16] == false)
         {
-            // SPECIMEN 3 - move to grab position
-            positionYTarget = 450;
-            positionXTarget = 850;
+            // SPECIMEN 2 - release grabber and move toward specimen 3 via waypoint
+            servoClawGrabber.setPosition(clawOpenPosition);
+            positionXTarget = 100;
+            positionYTarget = 500;
+            positionOrientationTarget = 0;
+            bot.distanceToTargetPrevious = 1000;
+            positionPrecise = false;
+            bot.distanceToTargetPrevious = 1000;
+            armTarget = 1200;
             slideTarget = 1000;
-            positionPrecise = true;
             stepsStarted[16] = true;
         }
         else if(stepsStarted[16] == true && steps[16] == false && positionXTarget < -9999)
@@ -497,73 +520,74 @@ public class AutonomousTest extends OpMode
 
         if(steps[16] == true && stepsStarted[17] == false)
         {
-            // SPECIMEN 3 - rotate and extend arm
-            servoClawExtend.setPosition(armRetractedPosition + 0.32);
-            orientationTarget = 180;
-            rotationDirection = "counterclockwise";
+            // SPECIMEN 3 - move to grab position
+            positionYTarget = 450;
+            positionXTarget = 850;
+            bot.distanceToTargetPrevious = 1000;
+            armTarget = 0;
+            slideTarget = 1150;
+            positionPrecise = true;
             stepsStarted[17] = true;
         }
-        else if(stepsStarted[17] == true && steps[17] == false && orientationTarget < 0)
+        else if(stepsStarted[17] == true && steps[17] == false && positionXTarget < -9999)
         {
             steps[17] = true;
         }
 
         if(steps[17] == true && stepsStarted[18] == false)
         {
-            // SPECIMEN 3 - grab specimen 3
-            servoClawGrabber.setPosition(clawClosedPosition);
-            bot.sleep(200);
-            slideTarget = 1200;
-            armTarget = 2800;
+            // SPECIMEN 3 - rotate and extend arm
+            orientationTarget = 180;
+            rotationDirection = "counterclockwise";
+            rotationErrorTolerance = 1.5;
             stepsStarted[18] = true;
         }
-        else if(stepsStarted[18] == true && steps[18] == false && slideTarget < 0)
+        else if(stepsStarted[18] == true && steps[18] == false && orientationTarget < 0)
         {
+            servoClawExtend.setPosition(armRetractedPosition + 0.32);
+            bot.sleep(400);
             steps[18] = true;
         }
 
         if(steps[18] == true && stepsStarted[19] == false)
         {
-            // SPECIMEN 3 - move to bar
-            orientationTarget = 0;
-            rotationDirection = "clockwise";
-            servoClawExtend.setPosition(armRetractedPosition);
-            positionXTarget = -200;
-            positionYTarget = 730;
-            positionOrientationTarget = 0;
-            positionPrecise = true;
-            slideTarget = 930;
+            // SPECIMEN 3 - grab specimen 3
+            servoClawGrabber.setPosition(clawClosedPosition);
+            bot.sleep(300);
+            slideTarget = 1500;
+            armTarget = 2400;
             stepsStarted[19] = true;
         }
-        else if(stepsStarted[19] == true && steps[19] == false && orientationTarget < 0 && positionXTarget < -9999)
+        else if(stepsStarted[19] == true && steps[19] == false && slideTarget < 0)
         {
             steps[19] = true;
         }
 
         if(steps[19] == true && stepsStarted[20] == false)
         {
-            // SPECIMEN 2 - move arm to lock specimen to bar
-            armTarget = 1600;
+            // SPECIMEN 3 - rotate to bar
+            orientationTarget = 0;
+            rotationDirection = "clockwise";
+            servoClawExtend.setPosition(armRetractedPosition);
+            rotationErrorTolerance = 1.5;
+            slideTarget = 1000;
             stepsStarted[20] = true;
-            timer.reset();
         }
-        else if(stepsStarted[20] == true && steps[20] == false && timer.milliseconds() >= 500)
+        else if(stepsStarted[20] == true && steps[20] == false && orientationTarget < 0)
         {
             steps[20] = true;
+            steps[21] = true;
+            stepsStarted[21] = true;
         }
 
         if(steps[20] == true && stepsStarted[21] == false)
         {
-            // SPECIMEN 23 - release grabber and move toward specimen 3 via waypoint
-            servoClawGrabber.setPosition(clawOpenPosition);
-            bot.sleep(200);
-            positionXTarget = 100;
-            positionYTarget = 400;
+            // SPECIMEN 3 - move toward bar via waypoint
+            positionXTarget = 0;
+            positionYTarget = 200;
             positionOrientationTarget = 0;
             positionPrecise = false;
             bot.distanceToTargetPrevious = 1000;
-            armTarget = 0;
-            slideTarget = 800;
             stepsStarted[21] = true;
         }
         else if(stepsStarted[21] == true && steps[21] == false && positionXTarget < -9999)
@@ -573,17 +597,66 @@ public class AutonomousTest extends OpMode
 
         if(steps[21] == true && stepsStarted[22] == false)
         {
+            // SPECIMEN 3 - move to bar
+            orientationTarget = 0;
+            rotationErrorTolerance = 1.5;
+            servoClawExtend.setPosition(armRetractedPosition);
+            positionXTarget = 0;
+            positionYTarget = 700;
+            positionOrientationTarget = 0;
+            bot.distanceToTargetPrevious = 1000;
+            positionPrecise = true;
+            slideTarget = 1000;
+            stepsStarted[22] = true;
+        }
+        else if(stepsStarted[22] == true && steps[22] == false && orientationTarget < 0 && positionXTarget < -9999)
+        {
+            steps[22] = true;
+        }
+
+        if(steps[22] == true && stepsStarted[23] == false)
+        {
+            // SPECIMEN 3 - move arm to lock specimen to bar
+            armTarget = 1550;
+            stepsStarted[23] = true;
+            timer.reset();
+        }
+        else if(stepsStarted[23] == true && steps[23] == false && timer.milliseconds() >= 500)
+        {
+            steps[23] = true;
+        }
+
+        if(steps[23] == true && stepsStarted[24] == false)
+        {
+            // SPECIMEN 3 - release grabber and move toward parking via waypoint
+            servoClawGrabber.setPosition(clawOpenPosition);
+            bot.sleep(200);
+            positionXTarget = 100;
+            positionYTarget = 500;
+            positionOrientationTarget = 0;
+            positionPrecise = false;
+            bot.distanceToTargetPrevious = 1000;
+            armTarget = 1200;
+            stepsStarted[24] = true;
+        }
+        else if(stepsStarted[24] == true && steps[24] == false && positionXTarget < -9999)
+        {
+            steps[24] = true;
+        }
+
+        if(steps[24] == true && stepsStarted[25] == false)
+        {
             // PARK
-            positionXTarget = 850;
-            positionYTarget = 0;
+            positionXTarget = 1300;
+            positionYTarget = 100;
             slideTarget = 0;
             armTarget = 0;
             positionPrecise = true;
-            stepsStarted[22] = true;
+            stepsStarted[25] = true;
         }
-        else if(stepsStarted[22] == true && steps[22] == false && positionXTarget < -9999)
+        else if(stepsStarted[25] == true && steps[25] == false && positionXTarget < -9999)
         {
-            steps[22] = true;
+            steps[25] = true;
         }
 
     }
