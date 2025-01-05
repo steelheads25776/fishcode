@@ -39,6 +39,7 @@ public class Robot
 
     public double voltageStart = 0.0;
     public int rotateCorrections = 0;
+    public int navCorrections = 0;
 
     public Robot(GoBildaPinpointDriver pod)
     {
@@ -198,11 +199,11 @@ public class Robot
             double rotatePowerMin = 0.10; // set the minimum rotation speed
             if (voltageStart > 13)
             {
-                rotatePowerMin = 0.08;
+                rotatePowerMin = 0.1;
             }
             else if (voltageStart >= 12.8)
             {
-                rotatePowerMin = 0.09;
+                rotatePowerMin = 0.1;
             }
             if (rotationErrorTolerance > 2.0)
             {
@@ -241,7 +242,7 @@ public class Robot
                 {
                     distanceToTarget = distanceToTarget - 360;
                 }
-                if (Math.abs(distanceToTarget) <= rotationErrorTolerance || rotateCorrections >= 3)
+                if (Math.abs(distanceToTarget) <= rotationErrorTolerance || rotateCorrections >= 2)
                 {
                     orientationTarget = -1.0;
 
@@ -458,7 +459,12 @@ public class Robot
             double powerMax = 0.9;
             double powerMin = 0.20;
 
-            if (voltageStart > 13)
+            if (voltageStart > 13.2)
+            {
+                powerMax = 0.75;
+                powerMin = 0.13;
+            }
+            else if (voltageStart > 13)
             {
                 powerMax = 0.8;
                 powerMin = 0.15;
@@ -498,6 +504,7 @@ public class Robot
                 {
                     powerRotate = 1.0;
                 }
+                // turned off rotation correction
                 powerRotate = 0.0;
             }
 
@@ -569,6 +576,14 @@ public class Robot
                     if (distanceTraveledFromPrevious > 15 && distanceToTarget < distanceToSlow && positionPrecise == true)
                     {
                         motorPower = -0.1;
+                        if (Math.abs(distanceToTarget) < errorTolerance + 10)
+                        {
+                            navCorrections++;
+                        }
+                        else
+                        {
+                            navCorrections = 0;
+                        }
                     }
                     denominator = Math.max((Math.abs(powerX) + Math.abs(powerY) + Math.abs(powerRotate * powerRotateMax)), 1.0);
                     motorFrontLeft.setPower(((powerY - powerX - (powerRotate * powerRotateMax)) * motorPower) / denominator);
@@ -584,7 +599,7 @@ public class Robot
                 positionXCurrent = getX();
                 positionYCurrent = getY();
                 distanceToTarget = Math.sqrt((Math.pow((positionXTarget - positionXCurrent), 2)) + (Math.pow((positionYTarget - positionYCurrent), 2)));
-                if (distanceToTarget < errorTolerance)
+                if (distanceToTarget < errorTolerance || navCorrections >= 2)
                 {
 
                     motorFrontLeft.setPower(0);
