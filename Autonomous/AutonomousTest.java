@@ -41,11 +41,6 @@ public class AutonomousTest extends OpMode
     double armTarget = -10000;
     //double armCurrent = 0.0;
 
-    boolean driveButtonA, driveButtonX, driveButtonB, driveButtonY;
-    boolean driveDpadL, driveDpadU, driveDpadD, driveDpadR;
-    float stickLeftX, stickLeftY, stickRightX, stickRightY;
-    float triggerLeft, triggerRight;
-
     double motorspeed = 1.0;
     double rotateSpeed = 0.75;
     double slowRotateSpeed = 0.35;
@@ -180,27 +175,6 @@ public class AutonomousTest extends OpMode
     {
         telemetry.addLine("start");
         telemetry.update();
-        /*
-        positionXTarget = 0;
-        positionYTarget = 1000;
-        while(positionXTarget > -10000);
-
-        orientationTarget = 180;
-        while(orientationTarget > -1);
-
-        armTarget = 2500;
-        while(armTarget > -1);
-
-        armTarget = 0;
-        while(armTarget > -1);
-
-        orientationTarget = 0;
-        while(orientationTarget > -1);
-
-        positionXTarget = 0;
-        positionYTarget = 0;
-
-         */
     }
 
     public void loop()
@@ -483,7 +457,7 @@ public class AutonomousTest extends OpMode
         else if(stepsStarted[14] == true && steps[14] == false && orientationTarget < 0 && positionXTarget < -9999)
         {
             steps[14] = true;
-        }        
+        }
 
         if(steps[14] == true && stepsStarted[15] == false)
         {
