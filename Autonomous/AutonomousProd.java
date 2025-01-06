@@ -41,11 +41,6 @@ public class AutonomousProd extends OpMode
     double armTarget = -10000;
     //double armCurrent = 0.0;
 
-    boolean driveButtonA, driveButtonX, driveButtonB, driveButtonY;
-    boolean driveDpadL, driveDpadU, driveDpadD, driveDpadR;
-    float stickLeftX, stickLeftY, stickRightX, stickRightY;
-    float triggerLeft, triggerRight;
-
     double motorspeed = 1.0;
     double rotateSpeed = 0.75;
     double slowRotateSpeed = 0.35;
@@ -86,11 +81,6 @@ public class AutonomousProd extends OpMode
         telemetry.addData("FR power", motorFrontRight.getPower());
         telemetry.addData("BL power", motorBackLeft.getPower());
         telemetry.addData("BR power", motorBackRight.getPower());
-        //telemetry.addData("step1", steps[0]);
-        //telemetry.addData("step2", steps[1]);
-        //telemetry.addData("step3", steps[2]);
-        //telemetry.addData("step4", steps[3]);
-        //telemetry.addData("step5", steps[4]);
 
         bot.update();
         telemetry.update();
@@ -155,9 +145,7 @@ public class AutonomousProd extends OpMode
 
         bot = new Robot(odometry);
         //bot.setDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.FORWARD);
-        //bot.setMotors(motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight);
 
-        //bot = new Robot();
         bot.setMotors(motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight, motorSlideLeft, motorSlideRight, motorClawArm);
         bot.setServos(servoClawGrabber, servoClawExtend);
         bot.setSpeed(0.4);
@@ -180,27 +168,6 @@ public class AutonomousProd extends OpMode
     {
         telemetry.addLine("start");
         telemetry.update();
-        /*
-        positionXTarget = 0;
-        positionYTarget = 1000;
-        while(positionXTarget > -10000);
-
-        orientationTarget = 180;
-        while(orientationTarget > -1);
-
-        armTarget = 2500;
-        while(armTarget > -1);
-
-        armTarget = 0;
-        while(armTarget > -1);
-
-        orientationTarget = 0;
-        while(orientationTarget > -1);
-
-        positionXTarget = 0;
-        positionYTarget = 0;
-
-         */
     }
 
     public void loop()
@@ -500,7 +467,7 @@ public class AutonomousProd extends OpMode
         else if(stepsStarted[14] == true && steps[14] == false && orientationTarget < 0 && positionXTarget < -9999)
         {
             steps[14] = true;
-        }        
+        }
 
         if(steps[14] == true && stepsStarted[15] == false)
         {
