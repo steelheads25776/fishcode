@@ -18,7 +18,7 @@ public class Robot
     DcMotorEx motorClawArm;
     Servo servoClawGrabber, servoClawExtend;
 
-    double brakePower = 0.1;
+    public double brakePower = 0.1;
     double brakeActivePosition = 100;
     double slideSlowZone = 100;
 
@@ -32,6 +32,10 @@ public class Robot
 
     public double distanceToTargetPrevious = 1000.0;
     public double distanceTraveledFromPrevious = 0.0;
+
+    public double slidePositionPrevious = 0;
+    public double slidePositionHold = 0;
+    public double slidePowerHang = 0;
 
     public double currentDeg = 0.0;
 
@@ -329,13 +333,13 @@ public class Robot
         double errorTolerance = 20;
         double distanceToSlow = 100;
 
-        if (slideTarget > -1.0)
+        if (slideTarget > -1)
         {
             if (Math.abs(slideTarget - slideCurrent) <= errorTolerance)
             {
                 motorSlideLeft.setPower(brakePower * -1.0);
                 motorSlideRight.setPower(brakePower * -1.0);
-                slideTarget = -1.0;
+                slideTarget = -1;
             }
             else if (Math.abs(slideTarget - slideCurrent) <= distanceToSlow)
             {
@@ -370,7 +374,7 @@ public class Robot
             }
 
         }
-        else if (slideTarget > -2.0) // gamepad2.left_stick_y engaged
+        else if (slideTarget > -2) // gamepad2.left_stick_y engaged
         {
             if (motorSlideLeft.getCurrentPosition() >= brakeActivePosition)
             {
@@ -379,6 +383,93 @@ public class Robot
                 //test = -10;
             }
         }
+
+        return slideTarget;
+    }
+
+    public double slideToPositionHang(double slideTarget, String slideDirection)
+    {
+        double slideCurrent = motorSlideLeft.getCurrentPosition();
+        double errorTolerance = 20;
+        double distanceToSlow = 100;
+
+        //test = 9999;
+
+        if (slideTarget > -1000)
+        {
+            if (slideDirection == "down")
+            {
+                // Lifting the robot
+                if (slideCurrent <= slideTarget)
+                {
+                    motorSlideLeft.setPower(brakePower);
+                    motorSlideRight.setPower(brakePower);
+                    slideTarget = -1000;
+                }
+                else
+                {
+                    if (slideCurrent - slidePositionPrevious <= 0)
+                    {
+                        // Add power if not moving down;
+                        slidePowerHang = slidePowerHang + 0.01;
+                        test = 12345;
+                    }
+                    motorSlideLeft.setPower(slidePowerHang);
+                    motorSlideRight.setPower(slidePowerHang);
+                }
+            }
+            else
+            {
+                // Moving slide up
+                if (slideCurrent >= slideTarget)
+                {
+                    motorSlideLeft.setPower(brakePower);
+                    motorSlideRight.setPower(brakePower);
+                    slideTarget = -1000;
+                }
+                else
+                {
+                    if (slideCurrent - slidePositionPrevious >= 0)
+                    {
+                        // Add power if not moving up;
+                        slidePowerHang = slidePowerHang - 0.01;
+                    }
+                    motorSlideLeft.setPower(slidePowerHang);
+                    motorSlideRight.setPower(slidePowerHang);
+                }
+            }
+
+        }
+        else
+        {
+            // Dynamic Braking
+            // - is up and + is down
+            if (slideCurrent - slidePositionPrevious > 5)
+            {
+                // Moving down fast
+                brakePower = brakePower + 0.1;
+            }
+            else if (slideCurrent - slidePositionPrevious > 0)
+            {
+                // Moving down slow
+                brakePower = brakePower + 0.01;
+            }
+            else if (slideCurrent - slidePositionPrevious < 0)
+            {
+                // Moving up slow
+                brakePower = brakePower - 0.01;
+            }
+            else if (slideCurrent - slidePositionPrevious < -5)
+            {
+                // Moving up fast
+                brakePower = brakePower - 0.1;
+            }
+
+            motorSlideLeft.setPower(brakePower);
+            motorSlideRight.setPower(brakePower);
+        }
+
+        slidePositionPrevious = slideCurrent;
 
         return slideTarget;
     }
@@ -447,6 +538,50 @@ public class Robot
         return armTarget;
     }
 
+    public double armToPositionHang(double armTarget, String armDirection)
+    {
+        double armCurrent = motorClawArm.getCurrentPosition();
+        double errorTolerance = 30;
+        double armPower = 0.6;
+        int distanceToSlow = 200;
+
+        if (armTarget > -10000)
+        {
+            if (armDirection == "down")
+            {
+                armPower = -0.8;
+                if (armCurrent <= armTarget)
+                {
+                    motorClawArm.setPower(0.0);
+                    armTarget = -10000;
+                }
+                else
+                {
+                    motorClawArm.setPower(armPower);
+                }
+            }
+            else if (armDirection == "up")
+            {
+                armPower = 0.4;
+                if (armCurrent >= armTarget)
+                {
+                    motorClawArm.setPower(0.0);
+                    armTarget = -10000;
+                }
+                else
+                {
+                    motorClawArm.setPower(armPower);
+                }
+            }
+        }
+        else
+        {
+            motorClawArm.setPower(0.0);
+            armTarget = -10000;
+        }
+
+        return armTarget;
+    }
 
     public double[] navToPosition(double positionXTarget, double positionYTarget, double positionOrientationTarget, boolean positionPrecise) //X is forward - Y is strafe (left is positive)
     {
