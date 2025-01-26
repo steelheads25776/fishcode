@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -24,6 +25,7 @@ public class a_1hang3bucket extends OpMode
     Servo servoClawGrabber, servoClawExtend;
     VoltageSensor sensorVoltage;
     Robot bot;
+    TouchSensor buttonArmStop;
 
     double orientationCurrent = 0.0; // in degrees - value will be 0 - 359.99
     double orientationTarget = -1.0;  // -1.0 means no rotation
@@ -66,11 +68,15 @@ public class a_1hang3bucket extends OpMode
 
     public void showTelemetry()
     {
+        bot.update();
         //telemetry.addData("degrees", bot.getDeg());
         telemetry.addLine("loop");
         telemetry.addData("x target", positionXTarget);
-        telemetry.addData("x pos", positionReturn[0]);
-        telemetry.addData("y pos", positionReturn[1]);
+        telemetry.addData("y target", positionYTarget);
+        telemetry.addData("distance to target", positionReturn[0]);
+        telemetry.addData("x pos return", positionReturn[1]);
+        telemetry.addData("x pos", bot.getX());
+        telemetry.addData("y pos", bot.getY());
         telemetry.addData("orientation target", orientationTarget);
         telemetry.addData("orientation distance to target", rotateReturn[0]);
         telemetry.addData("arm target", armTarget);
@@ -78,6 +84,7 @@ public class a_1hang3bucket extends OpMode
         telemetry.addData("slide power", motorSlideLeft.getPower());
         telemetry.addData("slide position", motorSlideLeft.getCurrentPosition());
         telemetry.addData("slide target", slideTarget);
+        telemetry.addData("step", step);
         telemetry.addData("test", bot.test);
 
 
@@ -91,7 +98,6 @@ public class a_1hang3bucket extends OpMode
         //telemetry.addData("step4", steps[3]);
         //telemetry.addData("step5", steps[4]);
 
-        bot.update();
         telemetry.update();
     }
 
@@ -141,7 +147,7 @@ public class a_1hang3bucket extends OpMode
         sensorVoltage = hardwareMap.get(VoltageSensor.class, "Control Hub");
 
         odometry = hardwareMap.get(GoBildaPinpointDriver.class, "Odometry");
-        odometry.setOffsets(-124, -150); // don't know how to get these offsets yet
+        odometry.setOffsets(-124, -500); // don't know how to get these offsets yet
         odometry.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.FORWARD);
         odometry.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_SWINGARM_POD);
         odometry.resetPosAndIMU();
@@ -153,6 +159,7 @@ public class a_1hang3bucket extends OpMode
         //bot = new Robot();
         bot.setMotors(motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight, motorSlideLeft, motorSlideRight, motorClawArm);
         bot.setServos(servoClawGrabber, servoClawExtend);
+
         bot.setSpeed(0.4);
         bot.reset();
 
@@ -160,6 +167,9 @@ public class a_1hang3bucket extends OpMode
         //armTarget = -1;
         servoClawExtend.setPosition(armRetractedPosition);
         servoClawGrabber.setPosition(clawOpenPosition);
+
+        buttonArmStop = hardwareMap.get(TouchSensor.class, "Button");
+        bot.setButton(buttonArmStop);
         timer.reset();
 
         bot.voltageStart = sensorVoltage.getVoltage();
@@ -167,10 +177,10 @@ public class a_1hang3bucket extends OpMode
 
     public void init_loop()
     {
-        armTarget = bot.armToPosition(armTarget, false);
+        armTarget = bot.armToPosition(armTarget);
         if(timer.milliseconds() >= 2000)
         {
-            servoClawGrabber.setPosition(clawClosedPosition);
+            //servoClawGrabber.setPosition(clawClosedPosition);
         }
     }
 
@@ -185,26 +195,31 @@ public class a_1hang3bucket extends OpMode
     {
         if(step.equalsIgnoreCase("start"))
         {
-            //servoClawGrabber.setPosition(clawClosedPosition);
-            orientationTarget = 0;
-            positionXTarget = 0;
-            positionYTarget = 475;
+            servoClawGrabber.setPosition(clawClosedPosition);
+            //orientationTarget = 0;
+            //positionXTarget = 0;
+            positionYTarget = 495;//475
             positionOrientationTarget = 0;
             bot.distanceToTargetPrevious = 1000;
-            positionPrecise = true;
-            //armTarget = 360;
-            //servoClawExtend.setPosition(armExtendedPosition);
-            if(positionXTarget < -9999 && armTarget < -9999)
+            //positionPrecise = true;
+            step = "start started";
+        }
+        else if (step.equalsIgnoreCase("start started"))
+        {
+            if(positionYTarget < -9999)
             {
                 step = "move to hang s1 position";
             }
         }
         else if(step.equalsIgnoreCase("move to hang s1 position"))
         {
-            //servoClawExtend.setPosition(armExtendedPosition);
-            //slideTarget = 860;
-            //armTarget = 420;
-
+            servoClawExtend.setPosition(armExtendedPosition);
+            slideTarget = 975;//975
+            armTarget = 420;
+            step = "move to hang s1 position started";
+        }
+        else if(step.equalsIgnoreCase("move to hang s1 position started"))
+        {
             if(slideTarget < 0)
             {
                 timer.reset();
@@ -213,49 +228,401 @@ public class a_1hang3bucket extends OpMode
         }
         else if(step.equalsIgnoreCase("lock s1 to bar"))
         {
-            orientationTarget = 0;
-            positionXTarget = 0;
-            positionYTarget = 360;
+            //servoClawExtend.setPosition(armRetractedPosition);
+            //orientationTarget = 0;
+            //positionXTarget = 0;
+            positionYTarget = 380; //370
             positionOrientationTarget = 0;
-            bot.distanceToTargetPrevious = 1000;
-
-
-            if(timer.milliseconds() > 500)
+            bot.distanceToTargetPrevious = 10000;
+            //positionPrecise = true;
+            timer.reset();
+            step = "lock s1 to bar started";
+        }
+        else if(step.equalsIgnoreCase("lock s1 to bar started"))
+        {
+            if(timer.milliseconds() > 600)
             {
-                //servoClawGrabber.setPosition(clawOpenPosition);
-                if(positionXTarget < -9999)
+                servoClawGrabber.setPosition(clawOpenPosition);
+                if(positionYTarget < -9999)
                 {
-                    //servoClawExtend.setPosition(armRetractedPosition);
-                    step = "moveinaccurate";
+                    step = "get square";
                 }
             }
-
+            else if(timer.milliseconds() > 300)
+            {
+                servoClawExtend.setPosition(armRetractedPosition);
+            }
         }
-        else if(step.equalsIgnoreCase("moveinaccurate"))
+        else if(step.equalsIgnoreCase("get square"))
         {
             orientationTarget = 0;
-            positionYTarget = 245;
-            positionXTarget = -1000;
-            positionOrientationTarget = 0;
-            bot.distanceToTargetPrevious = 1000;
-            //slideTarget = 0;
-            //armTarget = 0;
-            positionPrecise = true;
-
-            step = "movetosamples";
+            slideTarget = 0;
+            armTarget = 30;
+            step = "get square started";
         }
-        else if(step.equalsIgnoreCase("movetosamples") && positionXTarget <= -9999 && slideTarget <= -9999)
+        else if(step.equalsIgnoreCase("get square started"))
+        {
+            if (slideTarget < 0 && armTarget < -9999 && orientationTarget < 0)
+            {
+                step = "move to sample 1";
+            }
+        }
+        else if(step.equalsIgnoreCase("move to sample 1"))
+        {
+            //orientationTarget = 0;
+            //positionYTarget = 360;
+            positionXTarget = -1020; // -1040
+            positionOrientationTarget = 0;
+            bot.distanceToTargetPrevious = 10000;
+            //positionPrecise = true;
+
+            step = "move to sample 1 started";
+        }
+        else if(step.equalsIgnoreCase("move to sample 1 started"))
+        {
+            if (positionXTarget < -9999)
+            {
+                armTarget = 0;
+                servoClawExtend.setPosition(armExtendedPosition);
+                positionYTarget = 390;
+                timer.reset();
+                step = "grab for sample 1";
+            }
+        }
+        else if(step.equalsIgnoreCase("grab for sample 1"))
+        {
+            if (timer.milliseconds() > 300)
+            {
+                servoClawGrabber.setPosition(clawClosedPosition);
+                positionYTarget = 345;//360
+                timer.reset();
+                step = "move to bucket 1";
+            }
+        }
+        else if(step.equalsIgnoreCase("move to bucket 1"))
+        {
+            if (timer.milliseconds() > 300)
+            {
+                positionXTarget = -1300;
+                positionOrientationTarget = 0;
+                bot.distanceToTargetPrevious = 10000;
+                servoClawExtend.setPosition(armRetractedPosition);
+                step = "move to bucket 1 started";
+            }
+            else if (timer.milliseconds() > 200)
+            {
+                servoClawExtend.setPosition(armRetractedPosition);
+            }
+        }
+        else if(step.equalsIgnoreCase("move to bucket 1 started"))
+        {
+            if(positionXTarget < -9999)
+            {
+                orientationTarget = 35;
+                servoClawExtend.setPosition(armExtendedPosition);
+                armTarget = 1000;//1500
+                slideTarget = 2200;
+                step = "reach for bucket 1 arm";
+            }
+        }
+        /*
+        else if(step.equalsIgnoreCase("reach for bucket 1"))
+        {
+            if(orientationTarget < 0)
+            {
+                servoClawExtend.setPosition(armExtendedPosition);
+                armTarget = 1000;//1500
+                slideTarget = 2200;
+                step = "reach for bucket 1 arm";
+            }
+        }
+
+         */
+        else if(step.equalsIgnoreCase("reach for bucket 1 arm"))
+        {
+            if(slideTarget < 0)
+            {
+                //servoClawExtend.setPosition(armExtendedPosition);
+                armTarget = 1350;
+                step = "reach for bucket 1 started";
+            }
+        }
+        else if(step.equalsIgnoreCase("reach for bucket 1 started"))
+        {
+            if(armTarget < -9999)
+            {
+                step = "drop sample 1";
+            }
+        }
+        else if(step.equalsIgnoreCase("drop sample 1"))
+        {
+            servoClawGrabber.setPosition(clawOpenPosition);
+            timer.reset();
+            step = "lower from bucket 1";
+        }
+        else if(step.equalsIgnoreCase("lower from bucket 1"))
+        {
+            if (timer.milliseconds() > 200)
+            {
+                servoClawExtend.setPosition(armRetractedPosition);
+                armTarget = 400;
+                slideTarget = 0;
+                timer.reset();
+                step = "reset encoders 1";
+            }
+        }
+        else if(step.equalsIgnoreCase("reset encoders 1"))
+        {
+            if(armTarget < -9999 && (slideTarget < 0 || timer.milliseconds() > 2000))
+            {
+                bot.resetSlideAndArm();
+                step = "rotate to sample 2";
+            }
+        }
+
+        else if(step.equalsIgnoreCase("rotate to sample 2"))
         {
             orientationTarget = 0;
-            positionYTarget = 730;
-            positionXTarget = -1400;
-            positionOrientationTarget = 0;
-            bot.distanceToTargetPrevious = 1000;
-            //slideTarget = 0;
-            //armTarget = 0;
-            positionPrecise = true;
+            step = "move to sample 2";
+        }
+        else if(step.equalsIgnoreCase("move to sample 2"))
+        {
+            if(orientationTarget < 0)
+            {
+                servoClawExtend.setPosition(armExtendedPosition);
+                positionYTarget = 315; //385 last: 375 320
+                bot.distanceToTargetPrevious = 10000;
+                step = "move back to bucket 2";
+            }
+        }
+        else if(step.equalsIgnoreCase("move back to bucket 2"))
+        {
+            if(positionYTarget < -9999)
+            {
+                servoClawGrabber.setPosition(clawClosedPosition);
+                bot.sleep(150);
+                positionYTarget = 240;//first: 370 last: 330 last: 280
+                bot.distanceToTargetPrevious = 10000;
+                timer.reset();
+                step = "rotate to bucket 2";
+            }
+        }
+        else if(step.equalsIgnoreCase("rotate to bucket 2"))
+        {
+            if(positionYTarget < -9999 && timer.milliseconds() > 750)
+            {
+                //servoClawExtend.setPosition(armRetractedPosition);
+                orientationTarget = 40;// last: 35
+                servoClawExtend.setPosition(armExtendedPosition);
+                armTarget = 1000;//1500
+                slideTarget = 2200;
+                step = "reach for bucket 2 arm";
+            }
+        }
+        /*
+        else if(step.equalsIgnoreCase("reach for bucket 2"))
+        {
+            if(orientationTarget < 0)
+            {
+                servoClawExtend.setPosition(armExtendedPosition);
+                armTarget = 1000;//1500
+                slideTarget = 2200;
+                step = "reach for bucket 2 arm";
+            }
+        }
 
-            step = "end"; //sample in front of robot
+         */
+        else if(step.equalsIgnoreCase("reach for bucket 2 arm"))
+        {
+            if(slideTarget < 0)
+            {
+                //servoClawExtend.setPosition(armExtendedPosition);
+                armTarget = 1350;
+                step = "reach for bucket 2 started";
+            }
+        }
+        else if(step.equalsIgnoreCase("reach for bucket 2 started"))
+        {
+            if(armTarget < -9999)
+            {
+                step = "drop sample 2";
+            }
+        }
+        else if(step.equalsIgnoreCase("drop sample 2"))
+        {
+            servoClawGrabber.setPosition(clawOpenPosition);
+            timer.reset();
+            step = "lower from bucket 2";
+        }
+        else if(step.equalsIgnoreCase("lower from bucket 2"))
+        {
+            if (timer.milliseconds() > 200)
+            {
+                servoClawExtend.setPosition(armRetractedPosition);
+                armTarget = 400;
+                slideTarget = 0;
+                timer.reset();
+                step = "reset encoders 2";
+            }
+        }
+        else if(step.equalsIgnoreCase("reset encoders 2"))
+        {
+            if(armTarget < -9999 && (slideTarget < 0 || timer.milliseconds() > 2000))
+            {
+                bot.resetSlideAndArm();
+                step = "rotate to sample 3";
+            }
+        }
+
+        else if(step.equalsIgnoreCase("rotate to sample 3"))
+        {
+            orientationTarget = 0;//340
+            //positionYTarget = 360;
+            //positionXTarget = -1250;
+            step = "move to sample 3";
+        }
+        else if(step.equalsIgnoreCase("move to sample 3"))
+        {
+            if(orientationTarget < 0)
+            {
+                positionYTarget = 360;
+                bot.distanceToTargetPrevious = 10000;
+                step = "rotate to sample 3 again";
+            }
+            //orientationTarget = 340;
+        }
+        else if(step.equalsIgnoreCase("rotate to sample 3 again"))
+        {
+            if(positionYTarget < -9999)
+            {
+                orientationTarget = 330;
+                step = "extend sample 3";
+            }
+        }
+        else if(step.equalsIgnoreCase("extend sample 3"))
+        {
+            if(positionYTarget < -9999)
+            {
+                servoClawExtend.setPosition(armExtendedPosition);
+                timer.reset();
+                step = "grab sample 3";
+            }
+        }
+        else if(step.equalsIgnoreCase("grab sample 3"))
+        {
+            if(timer.milliseconds() > 200)
+            {
+                servoClawGrabber.setPosition(clawClosedPosition);
+                timer.reset();
+                step = "move back a tad";
+            }
+        }
+        else if(step.equalsIgnoreCase("move back a tad"))
+        {
+            if(timer.milliseconds() > 300)
+            {
+                positionYTarget = 600;//570
+                bot.distanceToTargetPrevious = 10000;
+                step = "retract and rotate";
+            }
+        }
+        else if(step.equalsIgnoreCase("retract and rotate"))
+        {
+            if(positionYTarget < -9999)
+            {
+                //servoClawExtend.setPosition(armRetractedPosition);
+                orientationTarget = 40;
+                servoClawExtend.setPosition(armExtendedPosition);
+                armTarget = 1000;
+                slideTarget = 2200;
+                step = "raise to bucket 3 arm";
+            }
+        }
+        /*
+        else if(step.equalsIgnoreCase("raise to bucket 3"))
+        {
+            if(orientationTarget < 0)
+            {
+                servoClawExtend.setPosition(armExtendedPosition);
+                armTarget = 1000;
+                slideTarget = 2200;
+                step = "raise to bucket 3 arm";
+            }
+        }
+
+         */
+        else if(step.equalsIgnoreCase("raise to bucket 3 arm"))
+        {
+            if(slideTarget < 0)
+            {
+                armTarget = 1350;
+                step = "drop sample 3";
+            }
+        }
+        else if(step.equalsIgnoreCase("drop sample 3"))
+        {
+            if(armTarget < -9999)
+            {
+                servoClawGrabber.setPosition(clawOpenPosition);
+                timer.reset();
+                //step = "lower from bucket 3";
+                step = "lower from bucket 3";
+            }
+        }
+        else if(step.equalsIgnoreCase("lower from bucket 3"))
+        {
+            if (timer.milliseconds() > 200)
+            {
+                servoClawExtend.setPosition(armRetractedPosition);
+                slideTarget = 0;
+                armTarget = 800;
+                orientationTarget = 0;
+                step = "move forward to park";
+            }
+        }
+        else if(step.equalsIgnoreCase("move forward to park"))
+        {
+            if (orientationTarget < 0)
+            {
+                positionYTarget = 1400;
+                bot.distanceToTargetPrevious = 10000;
+                step = "strafe to park";
+            }
+        }
+        else if(step.equalsIgnoreCase("strafe to park"))
+        {
+            if (positionYTarget < -9999)
+            {
+                positionXTarget = -480;
+                bot.distanceToTargetPrevious = 10000;
+                step = "rotate to park";
+            }
+        }
+        else if(step.equalsIgnoreCase("rotate to park"))
+        {
+            if(positionXTarget < -9999)
+            {
+                orientationTarget = 90;
+                step = "extend arm above bar park";
+            }
+        }
+        else if(step.equalsIgnoreCase("extend arm above bar park"))
+        {
+            if(orientationTarget < 0)
+            {
+                servoClawExtend.setPosition(armExtendedPosition);
+                timer.reset();
+                step = "lower arm to bar park";
+            }
+        }
+        else if(step.equalsIgnoreCase("lower arm to bar park"))
+        {
+            if (timer.milliseconds() > 200)
+            {
+                //armTarget = 600;
+                motorClawArm.setPower(-0.2);
+                step = "end";
+            }
         }
     }
 
@@ -267,15 +634,19 @@ public class a_1hang3bucket extends OpMode
         distanceToTargetOrientation = rotateReturn[0];
         orientationTarget = rotateReturn[1];
 
+        /*
         if(orientationTarget < 0)
         {
             positionReturn = bot.navToPosition(positionXTarget, positionYTarget, positionOrientationTarget, positionPrecise);
             distanceToTargetPosition = positionReturn[0];
             positionXTarget = positionReturn[1];
         }
+        */
+        positionXTarget = bot.navToXPosition(positionXTarget, positionOrientationTarget);
+        positionYTarget = bot.navToYPosition(positionYTarget, positionOrientationTarget);
 
         slideTarget = bot.slideToPosition(slideTarget);
-        armTarget = bot.armToPosition(armTarget, false);
+        armTarget = bot.armToPosition(armTarget);
 
         autonomous();
 
