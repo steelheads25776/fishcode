@@ -18,7 +18,7 @@ public class Robot
     DcMotorEx motorSlideLeft, motorSlideRight;
     DcMotorEx motorClawArm;
     Servo servoClawGrabber, servoClawExtend;
-    TouchSensor button;
+    TouchSensor buttonArmStop;
 
     public double brakePower = 0.1;
     double brakeActivePosition = 100;
@@ -94,7 +94,7 @@ public class Robot
 
     public void setButton(TouchSensor bt)
     {
-        button = bt;
+        buttonArmStop = bt;
     }
 
     public void setSpeed(double speed)
@@ -105,7 +105,7 @@ public class Robot
     public void resetSlideAndArm()
     {
         boolean buttonAlreadyPressed = false;
-        while(button.isPressed())
+        while(buttonArmStop.isPressed())
         {
             motorClawArm.setPower(0.5);
             buttonAlreadyPressed = true;
@@ -121,7 +121,7 @@ public class Robot
         sleep(300);
         motorSlideLeft.setPower(0.0);
         motorSlideRight.setPower(0.0);
-        while(!button.isPressed())
+        while(!buttonArmStop.isPressed())
         {
             motorClawArm.setPower(-0.2);//-0.15
         }
@@ -387,6 +387,14 @@ public class Robot
             {
                 if (slideTarget < slideCurrent) //move down
                 {
+                    if(buttonArmStop.isPressed())
+                    {
+                        motorClawArm.setPower(1.0);
+                    }
+                    else
+                    {
+                        motorClawArm.setPower(0.0);
+                    }
                     if (slideCurrent < 100)
                     {
                         motorSlideLeft.setPower(0.05);
@@ -409,6 +417,14 @@ public class Robot
             {
                 if (slideTarget < slideCurrent) //move down
                 {
+                    if(buttonArmStop.isPressed())
+                    {
+                        motorClawArm.setPower(1.0);
+                    }
+                    else
+                    {
+                        motorClawArm.setPower(0.0);
+                    }
                     motorSlideLeft.setPower(0.4);
                     motorSlideRight.setPower(0.4);
                     //test = -2;
@@ -433,11 +449,7 @@ public class Robot
             }
         }
 
-        if (slideCurrent < 0)
-        {
-            motorSlideLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-            motorSlideLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        }
+
 
         return slideTarget;
     }
@@ -529,7 +541,7 @@ public class Robot
         return slideTarget;
     }
 
-    public double armToPosition(double armTarget)
+    public double armToPosition(double armTarget, String armDirection)
     {
         double armCurrent = motorClawArm.getCurrentPosition();
         double errorTolerance = 20;
@@ -538,18 +550,34 @@ public class Robot
 
         if (armTarget > -10000)
         {
-            if (Math.abs(armTarget - armCurrent) <= errorTolerance)
+            if(armDirection.equalsIgnoreCase("up"))
             {
-                motorClawArm.setPower(0.0);
-                sleep(100);
-                if (Math.abs(armTarget - armCurrent) <= errorTolerance)
+                if ((armTarget - armCurrent) <= errorTolerance)
                 {
+                    motorClawArm.setPower(0.0);
                     armTarget = -10000;
                 }
+                else if ((armTarget - armCurrent) <= distanceToSlow)
+                {
+                    armPower = 0.5;
+                    motorClawArm.setPower(0.25 + ((Math.abs(armTarget - armCurrent) / distanceToSlow) * armPower));
+                }
+                else
+                {
+                    if (armTarget > armCurrent) //move up
+                    {
+                        motorClawArm.setPower(armPower);
+                    }
+                }
             }
-            else if (Math.abs(armTarget - armCurrent) <= distanceToSlow)
+            else// move down
             {
-                if (armTarget < armCurrent) //move down
+                if ((armCurrent - armTarget) <= errorTolerance)
+                {
+                    motorClawArm.setPower(0.0);
+                    armTarget = -10000;
+                }
+                else if ((armCurrent - armTarget) <= distanceToSlow)
                 {
                     if(armCurrent < 100)
                     {
@@ -558,6 +586,10 @@ public class Robot
                     else if(armCurrent < 300)
                     {
                         armPower = 0.2;
+                    }
+                    else if(armCurrent < 500)
+                    {
+                        armPower = 0.3;
                     }
                     else if(armCurrent < 500)
                     {
@@ -569,19 +601,7 @@ public class Robot
                     }
                     motorClawArm.setPower(-0.1 - ((Math.abs(armTarget - armCurrent) / distanceToSlow) * armPower));
                 }
-                else // move up
-                {
-                    armPower = 0.5;
-                    motorClawArm.setPower(0.25 + ((Math.abs(armTarget - armCurrent) / distanceToSlow) * armPower));
-                }
-            }
-            else
-            {
-                if (armTarget > armCurrent) //move up
-                {
-                    motorClawArm.setPower(armPower);
-                }
-                else // move down
+                else
                 {
                     if(armCurrent < 100)
                     {
@@ -595,10 +615,21 @@ public class Robot
                     {
                         armPower = 0.3;
                     }
+                    else if(armCurrent < 1000)
+                    {
+                        armPower = 0.6;
+                    }
+                    else
+                    {
+                        armPower = 1;
+                    }
                     motorClawArm.setPower(armPower * (-1.0));
                 }
             }
         }
+
+
+
         else
         {
             //motorClawArm.setPower(0.0);
