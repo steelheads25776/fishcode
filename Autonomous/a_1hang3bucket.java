@@ -41,6 +41,7 @@ public class a_1hang3bucket extends OpMode
     double[] positionReturn = new double[2];
     double slideTarget = -1.0;
     double armTarget = -10000;
+    String armDirection = "up";
     //double armCurrent = 0.0;
 
     boolean driveButtonA, driveButtonX, driveButtonB, driveButtonY;
@@ -81,6 +82,7 @@ public class a_1hang3bucket extends OpMode
         telemetry.addData("orientation distance to target", rotateReturn[0]);
         telemetry.addData("arm target", armTarget);
         telemetry.addData("arm current", motorClawArm.getCurrentPosition());
+        telemetry.addData("arm power", motorClawArm.getPower());
         telemetry.addData("slide power", motorSlideLeft.getPower());
         telemetry.addData("slide position", motorSlideLeft.getCurrentPosition());
         telemetry.addData("slide target", slideTarget);
@@ -177,7 +179,7 @@ public class a_1hang3bucket extends OpMode
 
     public void init_loop()
     {
-        armTarget = bot.armToPosition(armTarget);
+        armTarget = bot.armToPosition(armTarget, "up");
         if(timer.milliseconds() >= 2000)
         {
             //servoClawGrabber.setPosition(clawClosedPosition);
@@ -196,12 +198,8 @@ public class a_1hang3bucket extends OpMode
         if(step.equalsIgnoreCase("start"))
         {
             servoClawGrabber.setPosition(clawClosedPosition);
-            //orientationTarget = 0;
-            //positionXTarget = 0;
-            positionYTarget = 495;//475
-            positionOrientationTarget = 0;
+            positionYTarget = 515;//495
             bot.distanceToTargetPrevious = 1000;
-            //positionPrecise = true;
             step = "start started";
         }
         else if (step.equalsIgnoreCase("start started"))
@@ -215,7 +213,8 @@ public class a_1hang3bucket extends OpMode
         {
             servoClawExtend.setPosition(armExtendedPosition);
             slideTarget = 975;//975
-            armTarget = 420;
+            armTarget = 390;//420 400
+            armDirection = "down";
             step = "move to hang s1 position started";
         }
         else if(step.equalsIgnoreCase("move to hang s1 position started"))
@@ -228,18 +227,16 @@ public class a_1hang3bucket extends OpMode
         }
         else if(step.equalsIgnoreCase("lock s1 to bar"))
         {
-            //servoClawExtend.setPosition(armRetractedPosition);
-            //orientationTarget = 0;
-            //positionXTarget = 0;
-            positionYTarget = 380; //370
-            positionOrientationTarget = 0;
+            positionYTarget = 360; //370
             bot.distanceToTargetPrevious = 10000;
-            //positionPrecise = true;
+
             timer.reset();
             step = "lock s1 to bar started";
         }
         else if(step.equalsIgnoreCase("lock s1 to bar started"))
         {
+            armTarget = 425;//415
+            armDirection = "up";
             if(timer.milliseconds() > 600)
             {
                 servoClawGrabber.setPosition(clawOpenPosition);
@@ -258,6 +255,7 @@ public class a_1hang3bucket extends OpMode
             orientationTarget = 0;
             slideTarget = 0;
             armTarget = 30;
+            armDirection = "down";
             step = "get square started";
         }
         else if(step.equalsIgnoreCase("get square started"))
@@ -269,29 +267,35 @@ public class a_1hang3bucket extends OpMode
         }
         else if(step.equalsIgnoreCase("move to sample 1"))
         {
-            //orientationTarget = 0;
-            //positionYTarget = 360;
-            positionXTarget = -1020; // -1040
-            positionOrientationTarget = 0;
-            bot.distanceToTargetPrevious = 10000;
-            //positionPrecise = true;
 
-            step = "move to sample 1 started";
+            positionXTarget = -1020; // -1040
+            bot.distanceToTargetPrevious = 10000;
+
+            step = "square to grab sample 1";
+        }
+        else if(step.equalsIgnoreCase("square to grab sample 1"))
+        {
+            if(positionXTarget < -9999)
+            {
+                orientationTarget = 0;
+                step = "move to sample 1 started";
+            }
         }
         else if(step.equalsIgnoreCase("move to sample 1 started"))
         {
-            if (positionXTarget < -9999)
+            if (orientationTarget < 0)
             {
                 armTarget = 0;
+                armDirection = "down";
                 servoClawExtend.setPosition(armExtendedPosition);
-                positionYTarget = 390;
+                positionYTarget = 380;
                 timer.reset();
                 step = "grab for sample 1";
             }
         }
         else if(step.equalsIgnoreCase("grab for sample 1"))
         {
-            if (timer.milliseconds() > 300)
+            if (timer.milliseconds() > 300 && positionYTarget < -9999)
             {
                 servoClawGrabber.setPosition(clawClosedPosition);
                 positionYTarget = 345;//360
@@ -303,11 +307,14 @@ public class a_1hang3bucket extends OpMode
         {
             if (timer.milliseconds() > 300)
             {
-                positionXTarget = -1300;
-                positionOrientationTarget = 0;
-                bot.distanceToTargetPrevious = 10000;
                 servoClawExtend.setPosition(armRetractedPosition);
-                step = "move to bucket 1 started";
+
+                if(positionYTarget < -9999)
+                {
+                    positionXTarget = -1300;
+                    bot.distanceToTargetPrevious = 10000;
+                    step = "move to bucket 1 started";
+                }
             }
             else if (timer.milliseconds() > 200)
             {
@@ -321,29 +328,18 @@ public class a_1hang3bucket extends OpMode
                 orientationTarget = 35;
                 servoClawExtend.setPosition(armExtendedPosition);
                 armTarget = 1000;//1500
+                armDirection = "up";
                 slideTarget = 2200;
                 step = "reach for bucket 1 arm";
             }
         }
-        /*
-        else if(step.equalsIgnoreCase("reach for bucket 1"))
-        {
-            if(orientationTarget < 0)
-            {
-                servoClawExtend.setPosition(armExtendedPosition);
-                armTarget = 1000;//1500
-                slideTarget = 2200;
-                step = "reach for bucket 1 arm";
-            }
-        }
-
-         */
         else if(step.equalsIgnoreCase("reach for bucket 1 arm"))
         {
             if(slideTarget < 0)
             {
                 //servoClawExtend.setPosition(armExtendedPosition);
                 armTarget = 1350;
+                armDirection = "up";
                 step = "reach for bucket 1 started";
             }
         }
@@ -358,14 +354,15 @@ public class a_1hang3bucket extends OpMode
         {
             servoClawGrabber.setPosition(clawOpenPosition);
             timer.reset();
-            step = "lower from bucket 1";
+            step = "lower from bucket 1";//lower from bucket 1
         }
         else if(step.equalsIgnoreCase("lower from bucket 1"))
         {
             if (timer.milliseconds() > 200)
             {
                 servoClawExtend.setPosition(armRetractedPosition);
-                armTarget = 400;
+                armTarget = 50;
+                armDirection = "down";
                 slideTarget = 0;
                 timer.reset();
                 step = "reset encoders 1";
@@ -415,29 +412,18 @@ public class a_1hang3bucket extends OpMode
                 orientationTarget = 40;// last: 35
                 servoClawExtend.setPosition(armExtendedPosition);
                 armTarget = 1000;//1500
+                armDirection = "up";
                 slideTarget = 2200;
                 step = "reach for bucket 2 arm";
             }
         }
-        /*
-        else if(step.equalsIgnoreCase("reach for bucket 2"))
-        {
-            if(orientationTarget < 0)
-            {
-                servoClawExtend.setPosition(armExtendedPosition);
-                armTarget = 1000;//1500
-                slideTarget = 2200;
-                step = "reach for bucket 2 arm";
-            }
-        }
-
-         */
         else if(step.equalsIgnoreCase("reach for bucket 2 arm"))
         {
             if(slideTarget < 0)
             {
                 //servoClawExtend.setPosition(armExtendedPosition);
                 armTarget = 1350;
+                armDirection = "up";
                 step = "reach for bucket 2 started";
             }
         }
@@ -459,7 +445,8 @@ public class a_1hang3bucket extends OpMode
             if (timer.milliseconds() > 200)
             {
                 servoClawExtend.setPosition(armRetractedPosition);
-                armTarget = 400;
+                armTarget = 50;
+                armDirection = "down";
                 slideTarget = 0;
                 timer.reset();
                 step = "reset encoders 2";
@@ -485,7 +472,8 @@ public class a_1hang3bucket extends OpMode
         {
             if(orientationTarget < 0)
             {
-                positionYTarget = 360;
+                //servoClawGrabber.setPosition(clawOpenPosition - 0.20);
+                positionYTarget = 410;
                 bot.distanceToTargetPrevious = 10000;
                 step = "rotate to sample 3 again";
             }
@@ -495,13 +483,13 @@ public class a_1hang3bucket extends OpMode
         {
             if(positionYTarget < -9999)
             {
-                orientationTarget = 330;
+                orientationTarget = 335;
                 step = "extend sample 3";
             }
         }
         else if(step.equalsIgnoreCase("extend sample 3"))
         {
-            if(positionYTarget < -9999)
+            if(orientationTarget < 0)
             {
                 servoClawExtend.setPosition(armExtendedPosition);
                 timer.reset();
@@ -534,28 +522,17 @@ public class a_1hang3bucket extends OpMode
                 orientationTarget = 40;
                 servoClawExtend.setPosition(armExtendedPosition);
                 armTarget = 1000;
+                armDirection = "up";
                 slideTarget = 2200;
                 step = "raise to bucket 3 arm";
             }
         }
-        /*
-        else if(step.equalsIgnoreCase("raise to bucket 3"))
-        {
-            if(orientationTarget < 0)
-            {
-                servoClawExtend.setPosition(armExtendedPosition);
-                armTarget = 1000;
-                slideTarget = 2200;
-                step = "raise to bucket 3 arm";
-            }
-        }
-
-         */
         else if(step.equalsIgnoreCase("raise to bucket 3 arm"))
         {
             if(slideTarget < 0)
             {
                 armTarget = 1350;
+                armDirection = "up";
                 step = "drop sample 3";
             }
         }
@@ -575,7 +552,8 @@ public class a_1hang3bucket extends OpMode
             {
                 servoClawExtend.setPosition(armRetractedPosition);
                 slideTarget = 0;
-                armTarget = 800;
+                armTarget = 700;
+                armDirection = "down";
                 orientationTarget = 0;
                 step = "move forward to park";
             }
@@ -593,7 +571,8 @@ public class a_1hang3bucket extends OpMode
         {
             if (positionYTarget < -9999)
             {
-                positionXTarget = -480;
+                servoClawExtend.setPosition(armExtendedPosition);
+                positionXTarget = -430;
                 bot.distanceToTargetPrevious = 10000;
                 step = "rotate to park";
             }
@@ -610,7 +589,6 @@ public class a_1hang3bucket extends OpMode
         {
             if(orientationTarget < 0)
             {
-                servoClawExtend.setPosition(armExtendedPosition);
                 timer.reset();
                 step = "lower arm to bar park";
             }
@@ -646,7 +624,7 @@ public class a_1hang3bucket extends OpMode
         positionYTarget = bot.navToYPosition(positionYTarget, positionOrientationTarget);
 
         slideTarget = bot.slideToPosition(slideTarget);
-        armTarget = bot.armToPosition(armTarget);
+        armTarget = bot.armToPosition(armTarget, armDirection);
 
         autonomous();
 
