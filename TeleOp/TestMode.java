@@ -26,7 +26,7 @@ public class TestMode extends LinearOpMode
     VoltageSensor sensorVoltage;
     Servo servoClawGrabber, servoClawExtend;
     Robot bot;
-    TouchSensor button;
+    TouchSensor buttonArmStop;
 
 
 
@@ -71,7 +71,8 @@ public class TestMode extends LinearOpMode
 
     double servoPosition = 0.0;
 
-    double clawOpenPosition = 0.7;//left bumper
+    double clawOpenMaxPosition = 0.7;
+    double clawOpenPosition = 0.5;//left bumper
     double clawClosedPosition = 0.0;//right bumper
 
     boolean clawExtended = false;
@@ -112,10 +113,15 @@ public class TestMode extends LinearOpMode
 
     ElapsedTime timer = new ElapsedTime();
 
-    int armMaximumPosition = 10000;
+    int armMaximumPosition = 1000;
 
     double armUpwardsPower = 1.0;
     double armDownwardsPower = 0.5;
+    ElapsedTime timerClaw = new ElapsedTime();
+    ElapsedTime timerArm = new ElapsedTime();
+
+    boolean isBumperCurrentlyPressed = false;
+    boolean armButtonBCurrentlyPressed = false;
 
     public void robotHang()
     {
@@ -138,7 +144,7 @@ public class TestMode extends LinearOpMode
         }
         else if(step.equalsIgnoreCase("pause before 1st lift"))
         {
-            if(timer.milliseconds() > 1000)
+            if(timer.milliseconds() > 500)
             {
                 motorTilter.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.FLOAT);
                 step = "lift to 1st bar";
@@ -156,32 +162,6 @@ public class TestMode extends LinearOpMode
         }
         else if(step.equalsIgnoreCase("lift to 1st bar"))
         {
-            /*
-            if(timer.milliseconds() < 400)
-            {
-                // add a small pause so tilter hits bar
-                if(timer.milliseconds() > 200)
-                {
-                    motorTilter.setPower(-0.7);
-                }
-                else
-                {
-                    motorTilter.setPower(0.0);
-                }
-            }
-            else
-            {
-                motorTilter.setPower(0.0);
-            }
-            */
-            //bot.test = 1234;
-
-            /*
-            if (slideTarget > -1000 && motorSlideLeft.getCurrentPosition() < slideTarget)
-            {
-                slideTarget = -1000;
-            }
-            */
             if (slideTarget < -999)
             {
                 timer.reset();
@@ -194,7 +174,7 @@ public class TestMode extends LinearOpMode
             if(timer.milliseconds() > 1000)
             {
                 step = "upper hooks to 2nd bar";
-                slideTarget = slideHangStart + 250;
+                slideTarget = slideHangStart + 400;
                 bot.slidePositionHold = slideTarget;
                 bot.brakePower = 0.25;
                 bot.slidePowerHang = -0.2;
@@ -204,7 +184,7 @@ public class TestMode extends LinearOpMode
         }
         else if (step.equalsIgnoreCase("upper hooks to 2nd bar"))
         {
-            if(timer.milliseconds() < 700)
+            if(timer.milliseconds() < 500)
             {
                 motorTilter.setPower(-0.9);
             }
@@ -212,7 +192,7 @@ public class TestMode extends LinearOpMode
             {
                 motorTilter.setPower(0.0);
             }
-            if(slideTarget < -999)
+            if(slideTarget < -999 && timer.milliseconds() > 500)
             {
                 step = "bring up tilter";
                 timer.reset();
@@ -220,11 +200,11 @@ public class TestMode extends LinearOpMode
         }
         else if (step.equalsIgnoreCase("bring up tilter"))
         {
-
             step = "lift to 2nd bar";
             motorTilter.setPower(0.0);
+
             slideHangStart = motorSlideLeft.getCurrentPosition();
-            slideTarget = slideHangStart - 2200;
+            slideTarget = slideHangStart - 2400;
             bot.slidePositionHold = slideTarget;
             bot.brakePower = 0.4;
             bot.slidePowerHang = 0.65;
@@ -235,13 +215,17 @@ public class TestMode extends LinearOpMode
         {
             if (slideTarget < -999)
             {
+                //bot.brakePower = 0.0;
                 step = "celebrate";
                 timer.reset();
             }
         }
         else if (step.equalsIgnoreCase("celebrate"))
         {
+            if(timer.milliseconds() < 500)
+            {
 
+            }
         }
     }
 
@@ -273,6 +257,10 @@ public class TestMode extends LinearOpMode
             hangStarted = false;
             noSlow = false;
             //bot.reset();
+        }
+        else if (driveButtonX)
+        {
+            bot.resetSlideAndArm();
         }
 
 
@@ -402,15 +390,18 @@ public class TestMode extends LinearOpMode
     public void armRotate()
     {
         armRightStickY = gamepad2.right_stick_y;
-
+        /*
         if(motorSlideLeft.getCurrentPosition() < 650)// if slide is less than 650 ticks, don't allow arm to go past 1000 ticks
         {
             armMaximumPosition = 1000;
         }
+
         else if(motorSlideLeft.getCurrentPosition() > 650)// if slide is greater than 650 ticks, don't allow arm to go past 2000 ticks
         {
             armMaximumPosition = 2000;
         }
+
+
 
         if(motorClawArm.getCurrentPosition() >= 1000) //change speed values based on arm position
         {
@@ -422,7 +413,7 @@ public class TestMode extends LinearOpMode
             armUpwardsPower = 1.00;
             armDownwardsPower = 0.50;
         }
-
+        */
         if(armRightStickY == 0 && armTarget > -10000)
         {
             // do nothing - arm is moving
@@ -437,15 +428,24 @@ public class TestMode extends LinearOpMode
                 {
                     motorClawArm.setPower(((armRightStickY * armRotateSpeed) * -1) * armDownwardsPower);
                 }
+                else
+                {
+                    motorClawArm.setPower(0.0);
+                }
             }
 
-            else if(button.isPressed())//disable downwards movement if button is pressed
+            else if(buttonArmStop.isPressed())//disable downwards movement if button is pressed
             {
                 if(armRightStickY < 0)//up
                 {
                     motorClawArm.setPower(((armRightStickY * armRotateSpeed) * -1) * armUpwardsPower);
                 }
+                else
+                {
+                    motorClawArm.setPower(0.0);
+                }
             }
+
             else//give full control if neither at max position or pressing button
             {
                 if(armRightStickY > 0)//down
@@ -475,6 +475,7 @@ public class TestMode extends LinearOpMode
         armRightBumper = gamepad2.right_bumper;//close claw
         armLeftBumper = gamepad2.left_bumper;//open claw
 
+        armButtonB = gamepad2.b;
 
         if(driveButtonY)//slow slide when y button is true
         {
@@ -496,13 +497,51 @@ public class TestMode extends LinearOpMode
 
         if(armLeftBumper)//open claw
         {
+            if(!isBumperCurrentlyPressed)
+            {
+                isBumperCurrentlyPressed = true;
+                timerClaw.reset();
+            }
             servoClawGrabber.setPosition(clawOpenPosition);
         }
+        else if(!armLeftBumper)
+        {
+            isBumperCurrentlyPressed = false;
+        }
 
+        if(isBumperCurrentlyPressed && timerClaw.milliseconds() > 200)
+        {//if left bumper has been pressed for more than 200 milliseconds
+            servoClawGrabber.setPosition(clawOpenMaxPosition);
+        }
 
         if(armRightBumper)//close claw
         {
             servoClawGrabber.setPosition(clawClosedPosition);
+        }
+
+        if(armButtonB)//raise arm to grab from middle
+        {
+            timerArm.reset();
+            if(!armButtonBCurrentlyPressed)
+            {
+                armButtonBCurrentlyPressed = true;
+            }
+        }
+        else if(!armButtonB)
+        {
+            armButtonBCurrentlyPressed = false;
+        }
+
+        if(armButtonBCurrentlyPressed)
+        {
+            if(timerArm.milliseconds() < 200)
+            {
+                motorClawArm.setPower(0.6);
+            }
+            else
+            {
+                motorClawArm.setPower(0.0);
+            }
         }
 
         if(armDpadLeft)//strafe robot left, and disable driver control
@@ -632,6 +671,7 @@ public class TestMode extends LinearOpMode
         //telemetry.addData("LeftStickY:", armLeftStickY);
 
         //telemetry.addData("rotation mode", rotateMode);
+        telemetry.addData("arm power", motorClawArm.getPower());
 
         telemetry.addData("FL power", motorFrontLeft.getPower());
         telemetry.addData("FR power", motorFrontRight.getPower());
@@ -662,7 +702,7 @@ public class TestMode extends LinearOpMode
         //telemetry.addData("Target Orientation", orientationTarget);slideHangStart
         //telemetry.addData("Distance to Orientation", distanceToTargetOrientation);
         telemetry.addData("Rotation Direction", rotationDirection);
-        telemetry.addData("button", button.isPressed());
+        telemetry.addData("button", buttonArmStop.isPressed());
         telemetry.addData("Test", bot.test);
 
         telemetry.update();
@@ -675,7 +715,7 @@ public class TestMode extends LinearOpMode
         motorFrontRight = hardwareMap.get(DcMotor.class, "FrontRight");
         motorBackLeft = hardwareMap.get(DcMotor.class, "BackLeft");
         motorBackRight = hardwareMap.get(DcMotor.class, "BackRight");
-        button = hardwareMap.get(TouchSensor.class, "Button");
+        buttonArmStop = hardwareMap.get(TouchSensor.class, "Button");
 
         motorFrontLeft.setDirection(DcMotorSimple.Direction.REVERSE);
         motorFrontRight.setDirection(DcMotorSimple.Direction.FORWARD);
@@ -722,7 +762,7 @@ public class TestMode extends LinearOpMode
         sensorVoltage = hardwareMap.get(VoltageSensor.class, "Control Hub");
 
         odometry = hardwareMap.get(GoBildaPinpointDriver.class, "Odometry");
-        odometry.setOffsets(-124, -150); // don't know how to get these offsets yet
+        odometry.setOffsets(-124, -500); // don't know how to get these offsets yet
         odometry.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.FORWARD);
         odometry.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_SWINGARM_POD);
         odometry.resetPosAndIMU();
@@ -734,10 +774,11 @@ public class TestMode extends LinearOpMode
         //bot = new Robot();
         bot.setMotors(motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight, motorSlideLeft, motorSlideRight, motorClawArm);
         bot.setServos(servoClawGrabber, servoClawExtend);
+        bot.setButton(buttonArmStop);
         bot.setSpeed(0.4);
         bot.reset();
 
-        servoClawExtend.setPosition(armRetractedPosition);
+        //servoClawExtend.setPosition(armRetractedPosition);
         motorTilter.setPower(-1.0);
         sleep(100);
         motorTilter.setPower(0.0);
@@ -762,10 +803,11 @@ public class TestMode extends LinearOpMode
                 driverButtons();
                 armButtons();
                 showTelemetry();
-
+                /*
                 rotateReturn = bot.navRotate(orientationTarget, rotationDirection, rotationErrorTolerance);
                 distanceToTargetOrientation = rotateReturn[0];
                 orientationTarget = rotateReturn[1];
+
 
                 if(orientationTarget < 0)
                 {
@@ -775,7 +817,9 @@ public class TestMode extends LinearOpMode
                 }
 
                 slideTarget = bot.slideToPosition(slideTarget);
-                armTarget = bot.armToPosition(armTarget, noSlow);
+                armTarget = bot.armToPosition(armTarget);
+
+                 */
             }
 
             if (hangStarted)
