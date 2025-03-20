@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.opencv.core.Mat;
 
 public class Robot
@@ -936,7 +937,7 @@ public class Robot
 
             double powerMax = 0.9;
             double powerMin = 0.20;
-
+            /*
             if (voltageStart > 13.2)
             {
                 powerMax = 0.75;
@@ -952,7 +953,7 @@ public class Robot
                 powerMax = 0.85;
                 powerMin = 0.18;
             }
-
+            */
             double powerX = 0.0; // -1.0 - +1.0
             double powerY = 0.0; // -1.0 - +1.0
             double powerRotateMax = 0.7;
@@ -964,6 +965,7 @@ public class Robot
             double positionOrientationCurrent = getOrientationCurrent();
             boolean waypointPast = false;
 
+            /*
             double distanceToTargetOrientation = positionOrientationTarget - positionOrientationCurrent;
             // distanceToTarget gets converted to values between +180 to -180
             if (distanceToTargetOrientation < -180)
@@ -986,8 +988,10 @@ public class Robot
                 powerRotate = 0.0;
             }
 
+             */
+
             double distanceToSlow = 200;
-            double errorTolerance = 20;
+            double errorTolerance = 15;
 
             double motorPower = powerMax;
 
@@ -995,18 +999,34 @@ public class Robot
             double distanceToTargetY = positionYTarget - positionYCurrent;
 
 
+
+
             if (Math.abs(distanceToTargetX) >= Math.abs(distanceToTargetY))
             {
-                powerX = (distanceToTargetX / Math.abs(distanceToTargetX)) * 1.2;
+                powerX = (distanceToTargetX / Math.abs(distanceToTargetX)); // * 1.2;
                 powerY = distanceToTargetY / Math.abs(distanceToTargetX);
             }
             else
             {
-                powerX = (distanceToTargetX / Math.abs(distanceToTargetY)) * 1.2;
+                powerX = (distanceToTargetX / Math.abs(distanceToTargetY)); // * 1.2;
                 powerY = distanceToTargetY / Math.abs(distanceToTargetY);
             }
 
+            powerX = powerX * -1;
             distanceToTarget = Math.sqrt((Math.pow((positionXTarget - positionXCurrent), 2)) + (Math.pow((positionYTarget - positionYCurrent), 2)));
+
+            if (distanceToTargetPrevious == 10000)
+            {
+                distanceToTargetPrevious = distanceToTarget;
+                navAcceleration = 0;
+            }
+
+            navAcceleration = navAcceleration + 0.1;
+            if(navAcceleration < 1)
+            {
+                powerMax = powerMax * navAcceleration;
+            }
+
             test = powerX;
             if(distanceToTarget > distanceToTargetPrevious)
             {
@@ -1043,6 +1063,7 @@ public class Robot
 
             if (distanceToTarget > errorTolerance)
             {
+                motorPower = powerMax;
                 powerY = powerY * (-1.0);
 
                 if (positionPrecise == false && (distanceToTarget < 100 || waypointPast == true))
@@ -1068,11 +1089,17 @@ public class Robot
                         navCorrections = 0;
                     }
 
-                    denominator = Math.max((Math.abs(powerX) + Math.abs(powerY) + Math.abs(powerRotate * powerRotateMax)), 1.0);
-                    motorFrontLeft.setPower(((powerY - powerX - (powerRotate * powerRotateMax)) * motorPower) / denominator);
-                    motorFrontRight.setPower(((powerY + powerX + (powerRotate * powerRotateMax)) * motorPower) / denominator);
-                    motorBackLeft.setPower(((powerY + powerX - (powerRotate * powerRotateMax)) * motorPower) / denominator);
-                    motorBackRight.setPower(((powerY - powerX + (powerRotate * powerRotateMax)) * motorPower) / denominator);
+                    double currentRotation = getRad();
+                    double rotationX = powerX * Math.cos(-currentRotation) - powerY * Math.sin(-currentRotation);
+                    double rotationY = powerX * Math.sin(-currentRotation) + powerY * Math.cos(-currentRotation);
+                    test = rotationX;
+                    rotationX = rotationX * 1.1;
+                    double rightStickX = 0;
+                    denominator = Math.max(Math.abs(rotationY) + Math.abs(rotationX) + Math.abs(rightStickX), 1);
+                    motorFrontLeft.setPower(((rotationY + rotationX + rightStickX) / denominator) * motorPower);
+                    motorFrontRight.setPower(((rotationY - rotationX - rightStickX) / denominator) * motorPower);
+                    motorBackLeft.setPower(((rotationY - rotationX + rightStickX) / denominator) * motorPower);
+                    motorBackRight.setPower(((rotationY + rotationX - rightStickX) / denominator) * motorPower);
                 }
             }
             else
