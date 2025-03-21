@@ -78,7 +78,7 @@ public class TestModeFieldCentric extends LinearOpMode
     double servoPosition = 0.0;
 
     double clawOpenMaxPosition = 0.7;
-    double clawOpenPosition = 0.5;//left bumper
+    double clawOpenPosition = 0.4;//left bumper 0.5
     double clawClosedPosition = 0.0;//right bumper
 
     boolean clawExtended = false;
@@ -270,9 +270,9 @@ public class TestModeFieldCentric extends LinearOpMode
         {
             bot.resetSlideAndArm();
         }
-        else if (driveButtonY)
+        else if (driveButtonA)
         {
-            imu.resetYaw();
+            bot.reset();//imu.resetYaw();
         }
 
 
@@ -289,7 +289,7 @@ public class TestModeFieldCentric extends LinearOpMode
         driveTriggerLeft = gamepad1.left_trigger;
         driveTriggerRight = gamepad1.right_trigger;
 
-        currentRotation = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+        currentRotation = bot.getRad();//imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
 
         if(armDpadDown || armDpadLeft || armDpadRight || armDpadUp || armRightStickX > 0.1 || armRightStickX < -0.1)
         {
@@ -315,10 +315,10 @@ public class TestModeFieldCentric extends LinearOpMode
                 }
 
                 //rotateMode = "slow";
-                motorFrontLeft.setPower((driveStickRightX * rotationSpeed) * -1);
-                motorFrontRight.setPower((driveStickRightX * rotationSpeed) );
-                motorBackLeft.setPower((driveStickRightX * rotationSpeed) * -1);
-                motorBackRight.setPower((driveStickRightX * rotationSpeed));
+                motorFrontLeft.setPower((driveStickRightX * rotationSpeed));
+                motorFrontRight.setPower((driveStickRightX * rotationSpeed) * -1 );
+                motorBackLeft.setPower((driveStickRightX * rotationSpeed));
+                motorBackRight.setPower((driveStickRightX * rotationSpeed) * -1);
             }
             else
             {
