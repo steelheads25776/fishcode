@@ -3,12 +3,14 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.teamcode.hardware.EasyIMU;
 import org.opencv.core.Mat;
 
 public class Robot
@@ -20,6 +22,7 @@ public class Robot
     DcMotorEx motorClawArm;
     Servo servoClawGrabber, servoClawExtend;
     TouchSensor buttonArmStop;
+    IMU orientationIMU;
 
     public double brakePower = 0.1;
     double brakeActivePosition = 100;
@@ -50,6 +53,11 @@ public class Robot
 
     public double navAcceleration = 0;
 
+    public double teleOpIMUOrientation;
+    public double teleOpIMUOffset;
+    //public double odometryIMUResetPosition;
+
+
     public Robot(GoBildaPinpointDriver pod)
     {
         odometry = pod;
@@ -74,6 +82,24 @@ public class Robot
             //do nothing
         }
     }
+
+    public void setOffsetIMU(IMU imu)
+    {
+        orientationIMU = imu;
+        //teleOpIMUOffset = orientationIMU.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+    }
+
+    public void getIMUOffset()
+    {
+        teleOpIMUOffset = orientationIMU.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+    }
+
+    public double getTeleOpIMURotation()
+    {
+        teleOpIMUOrientation = getRad();
+        return teleOpIMUOrientation + teleOpIMUOffset;
+    }
+
 
     public void setMotors(DcMotor fl, DcMotor fr, DcMotor bl, DcMotor br, DcMotorEx sl, DcMotorEx sr, DcMotorEx arm)
     {
@@ -684,7 +710,7 @@ public class Robot
 
         return armTarget;
     }
-    
+
     public double navToXPosition(double positionXTarget, double positionOrientationTarget)
     {
         double distanceToTarget = 0.0;
@@ -894,7 +920,7 @@ public class Robot
                 {
                     navCorrections = 0;
                 }
-                
+
                 if (distanceToTargetY < 0)
                 {
                     motorPower = motorPower * -1.0;
@@ -926,8 +952,8 @@ public class Robot
 
         return positionYTarget;
     }
-    
-    public double[] navToPosition(double positionXTarget, double positionYTarget, double positionOrientationTarget, boolean positionPrecise) //X is forward - Y is strafe (left is positive)
+
+    public double[] navToPosition(double positionXTarget, double positionYTarget, double positionOrientationTarget, boolean positionPrecise) // Y is forward and backwards - X is strafe (positive Y is forwards positive X is right)
     {
         double distanceToTarget = 0.0;
 
@@ -1149,6 +1175,7 @@ public class Robot
     public void reset()
     {
         odometry.resetPosAndIMU();
+        teleOpIMUOffset = 0;
     }
 
     public void recalibrate()
