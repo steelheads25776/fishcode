@@ -78,7 +78,7 @@ public class TestModeFieldCentric extends LinearOpMode
     double servoPosition = 0.0;
 
     double clawOpenMaxPosition = 0.7;
-    double clawOpenPosition = 0.4;//left bumper 0.5
+    double clawOpenPosition = 0.5;//left bumper
     double clawClosedPosition = 0.0;//right bumper
 
     boolean clawExtended = false;
@@ -130,6 +130,8 @@ public class TestModeFieldCentric extends LinearOpMode
     boolean armButtonBCurrentlyPressed = false;
 
     double currentRotation;
+
+    float testRotateMulti = 3.0f;
 
     public void robotHang()
     {
@@ -268,11 +270,12 @@ public class TestModeFieldCentric extends LinearOpMode
         }
         else if (driveButtonX)
         {
-            bot.resetSlideAndArm();
+            imu.resetYaw();
+            //bot.resetSlideAndArm();
         }
         else if (driveButtonA)
         {
-            bot.reset();//imu.resetYaw();
+            bot.reset();
         }
 
 
@@ -280,16 +283,15 @@ public class TestModeFieldCentric extends LinearOpMode
 
     public void drive()
     {
-
         driveStickLeftX = gamepad1.left_stick_x * -1;
         driveStickLeftY = gamepad1.left_stick_y;
-        driveStickRightX = gamepad1.right_stick_x * -1;
+        driveStickRightX = (gamepad1.right_stick_x * -1);
         driveStickRightY = gamepad1.right_stick_y;
 
         driveTriggerLeft = gamepad1.left_trigger;
         driveTriggerRight = gamepad1.right_trigger;
 
-        currentRotation = bot.getRad();//imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+        currentRotation = bot.getTeleOpIMURotation();
 
         if(armDpadDown || armDpadLeft || armDpadRight || armDpadUp || armRightStickX > 0.1 || armRightStickX < -0.1)
         {
@@ -328,10 +330,10 @@ public class TestModeFieldCentric extends LinearOpMode
                 rotationX = rotationX * 1.1;
 
                 double denominator = Math.max(Math.abs(rotationY) + Math.abs(rotationX) + Math.abs(driveStickRightX), 1);
-                motorFrontLeft.setPower(((rotationY + rotationX + driveStickRightX) / denominator) * motorspeed);
-                motorFrontRight.setPower(((rotationY - rotationX - driveStickRightX) / denominator) * motorspeed);
-                motorBackLeft.setPower(((rotationY - rotationX + driveStickRightX) / denominator) * motorspeed);
-                motorBackRight.setPower(((rotationY + rotationX - driveStickRightX) / denominator) * motorspeed);
+                motorFrontLeft.setPower(((rotationY + rotationX + (driveStickRightX * testRotateMulti)) / denominator) * motorspeed);
+                motorFrontRight.setPower(((rotationY - rotationX - (driveStickRightX * testRotateMulti)) / denominator) * motorspeed);
+                motorBackLeft.setPower(((rotationY - rotationX + (driveStickRightX * testRotateMulti)) / denominator) * motorspeed);
+                motorBackRight.setPower(((rotationY + rotationX - (driveStickRightX * testRotateMulti)) / denominator) * motorspeed);
             }
         }
 
@@ -674,7 +676,7 @@ public class TestModeFieldCentric extends LinearOpMode
     {
         armLeftStickY = gamepad2.left_stick_y;
         armRightStickY = gamepad2.right_stick_y;
-        odometry.update();
+        bot.update();
 
         //telemetry.addData("clawArm:", clawArm.getCurrentPosition());
 
@@ -689,6 +691,10 @@ public class TestModeFieldCentric extends LinearOpMode
         //telemetry.addData("LeftStickY:", armLeftStickY);
 
         //telemetry.addData("rotation mode", rotateMode);
+        telemetry.addData("internal IMU", imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS));
+        telemetry.addData("odometry IMU", bot.getRad());
+        telemetry.addData("proposed change", bot.getTeleOpIMURotation());
+        telemetry.addData("IMU offset", bot.teleOpIMUOffset);
         telemetry.addData("arm power", motorClawArm.getPower());
 
         telemetry.addData("FL power", motorFrontLeft.getPower());
@@ -798,6 +804,8 @@ public class TestModeFieldCentric extends LinearOpMode
         bot.setServos(servoClawGrabber, servoClawExtend);
         bot.setButton(buttonArmStop);
         bot.setSpeed(0.4);
+        bot.setOffsetIMU(imu);
+        bot.getIMUOffset();
         bot.reset();
 
         //servoClawExtend.setPosition(armRetractedPosition);
@@ -806,6 +814,7 @@ public class TestModeFieldCentric extends LinearOpMode
         motorTilter.setPower(0.0);
 
         waitForStart();
+        bot.getIMUOffset();
     }
 
     @Override
