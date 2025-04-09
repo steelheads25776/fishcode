@@ -434,6 +434,7 @@ public class a_3hang extends OpMode
             if(timer.milliseconds() > 350 && positionYTarget < -9999)
             {
                 positionXTarget = -120;
+                bot.distanceToTargetPrevious = 10000;
                 step = "square up for s2";
             }
             else if(timer.milliseconds() > 200)
@@ -493,6 +494,7 @@ public class a_3hang extends OpMode
             if(timer.milliseconds() > 200 && armTarget < -9999)
             {
                 positionXTarget = 850;
+                bot.distanceToTargetPrevious = 10000;
                 step = "square up to grab s3";
             }
         }
@@ -528,6 +530,7 @@ public class a_3hang extends OpMode
             if(timer.milliseconds() > 800 && positionYTarget < -9999)
             {
                 positionYTarget = 240;
+                bot.distanceToTargetPrevious = 10000;
                 step = "move over to hang s3";
             }
             if(timer.milliseconds() > 390)
@@ -543,6 +546,7 @@ public class a_3hang extends OpMode
                 armTarget = 370;
                 armDirection = "down";
                 positionXTarget = -220;
+                bot.distanceToTargetPrevious = 10000;
                 step = "get squared to hang s3";
             }
         }
