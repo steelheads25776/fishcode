@@ -199,7 +199,7 @@ public class a_4bucket extends OpMode
         {
             servoClawGrabber.setPosition(clawClosedPosition);
             positionYTarget = 345;//495
-            bot.distanceToTargetPrevious = 1000;
+            bot.distanceToTargetPrevious = 10000;
             step = "start started";
         }
         else if (step.equalsIgnoreCase("start started"))
@@ -213,6 +213,7 @@ public class a_4bucket extends OpMode
         {
             positionXTarget = -1300;
             armTarget = 900;
+            bot.distanceToTargetPrevious = 10000;
             armDirection = "up";
             step = "raise arm to score preload";
         }
@@ -242,8 +243,9 @@ public class a_4bucket extends OpMode
         }
         else if(step.equalsIgnoreCase("drop preload sample"))
         {
-            if(armTarget < -9999)
+            if(armTarget < -9999 || timer.milliseconds() > 500)
             {
+                armTarget = -10000;
                 servoClawGrabber.setPosition(clawOpenPosition);
                 timer.reset();
                 step = "lower from preload";
@@ -267,15 +269,102 @@ public class a_4bucket extends OpMode
             if(armTarget < -9999 && (slideTarget < 0 || timer.milliseconds() > 2000))
             {
                 bot.resetSlideAndArm();
-                step = "move to sample 1";
+                step = "move to sample 2";
             }
         }
+        else if(step.equalsIgnoreCase("move to sample 2"))
+        {
+            if(orientationTarget < 0)
+            {
+                servoClawExtend.setPosition(armExtendedPosition);
+                positionYTarget = 320; //385 last: 375 320 315
+                bot.distanceToTargetPrevious = 10000;
+                step = "move back to bucket 2";
+            }
+        }
+        else if(step.equalsIgnoreCase("move back to bucket 2"))
+        {
+            if(positionYTarget < -9999)
+            {
+                servoClawGrabber.setPosition(clawClosedPosition);
+                bot.sleep(150);
+                positionYTarget = 240;//first: 370 last: 330 last: 280
+                bot.distanceToTargetPrevious = 10000;
+                timer.reset();
+                step = "rotate to bucket 2";
+            }
+        }
+        else if(step.equalsIgnoreCase("rotate to bucket 2"))
+        {
+            if(positionYTarget < -9999 && timer.milliseconds() > 750)
+            {
+                //servoClawExtend.setPosition(armRetractedPosition);
+                orientationTarget = 40;// last: 35
+                servoClawExtend.setPosition(armExtendedPosition);
+                armTarget = 1000;//1500
+                armDirection = "up";
+                slideTarget = 2200;
+                step = "reach for bucket 2 arm";
+            }
+        }
+        else if(step.equalsIgnoreCase("reach for bucket 2 arm"))
+        {
+            if(slideTarget < 0)
+            {
+                //servoClawExtend.setPosition(armExtendedPosition);
+                armTarget = 1330;
+                armDirection = "up";
+                step = "reach for bucket 2 started";
+            }
+        }
+        else if(step.equalsIgnoreCase("reach for bucket 2 started"))
+        {
+            if(armTarget < -9999)
+            {
+                step = "drop sample 2";
+            }
+        }
+        else if(step.equalsIgnoreCase("drop sample 2"))
+        {
+            servoClawGrabber.setPosition(clawOpenPosition);
+            timer.reset();
+            step = "lower from bucket 2";
+        }
+        else if(step.equalsIgnoreCase("lower from bucket 2"))
+        {
+            if (timer.milliseconds() > 200)
+            {
+                servoClawExtend.setPosition(armRetractedPosition);
+                armTarget = 50;
+                armDirection = "down";
+                slideTarget = 0;
+                timer.reset();
+                step = "reset encoders 2";
+            }
+        }
+        else if(step.equalsIgnoreCase("reset encoders 2"))
+        {
+            if(armTarget < -9999 && (slideTarget < 0 || timer.milliseconds() > 2000))
+            {
+                bot.resetSlideAndArm();
+                step = "rotate to grab sample 1";
+            }
+        }
+        else if(step.equalsIgnoreCase("rotate to grab sample 1"))
+        {
+            orientationTarget = 0;
+            step = "move to sample 1";
+        }
+
         else if(step.equalsIgnoreCase("move to sample 1"))
         {
-            positionXTarget = -1020; // -1040
-            bot.distanceToTargetPrevious = 10000;
+            if(orientationTarget < 0)
+            {
+                positionXTarget = -1020; // -1040
+                bot.distanceToTargetPrevious = 10000;
 
-            step = "square to grab sample 1";
+                step = "square to grab sample 1";
+            }
         }
         else if(step.equalsIgnoreCase("square to grab sample 1"))
         {
@@ -371,90 +460,6 @@ public class a_4bucket extends OpMode
             }
         }
         else if(step.equalsIgnoreCase("reset encoders 1"))
-        {
-            if(armTarget < -9999 && (slideTarget < 0 || timer.milliseconds() > 2000))
-            {
-                bot.resetSlideAndArm();
-                step = "rotate to sample 2";
-            }
-        }
-
-        else if(step.equalsIgnoreCase("rotate to sample 2"))
-        {
-            orientationTarget = 0;
-            step = "move to sample 2";
-        }
-        else if(step.equalsIgnoreCase("move to sample 2"))
-        {
-            if(orientationTarget < 0)
-            {
-                servoClawExtend.setPosition(armExtendedPosition);
-                positionYTarget = 320; //385 last: 375 320 315
-                bot.distanceToTargetPrevious = 10000;
-                step = "move back to bucket 2";
-            }
-        }
-        else if(step.equalsIgnoreCase("move back to bucket 2"))
-        {
-            if(positionYTarget < -9999)
-            {
-                servoClawGrabber.setPosition(clawClosedPosition);
-                bot.sleep(150);
-                positionYTarget = 240;//first: 370 last: 330 last: 280
-                bot.distanceToTargetPrevious = 10000;
-                timer.reset();
-                step = "rotate to bucket 2";
-            }
-        }
-        else if(step.equalsIgnoreCase("rotate to bucket 2"))
-        {
-            if(positionYTarget < -9999 && timer.milliseconds() > 750)
-            {
-                //servoClawExtend.setPosition(armRetractedPosition);
-                orientationTarget = 40;// last: 35
-                servoClawExtend.setPosition(armExtendedPosition);
-                armTarget = 1000;//1500
-                armDirection = "up";
-                slideTarget = 2200;
-                step = "reach for bucket 2 arm";
-            }
-        }
-        else if(step.equalsIgnoreCase("reach for bucket 2 arm"))
-        {
-            if(slideTarget < 0)
-            {
-                //servoClawExtend.setPosition(armExtendedPosition);
-                armTarget = 1330;
-                armDirection = "up";
-                step = "reach for bucket 2 started";
-            }
-        }
-        else if(step.equalsIgnoreCase("reach for bucket 2 started"))
-        {
-            if(armTarget < -9999)
-            {
-                step = "drop sample 2";
-            }
-        }
-        else if(step.equalsIgnoreCase("drop sample 2"))
-        {
-            servoClawGrabber.setPosition(clawOpenPosition);
-            timer.reset();
-            step = "lower from bucket 2";
-        }
-        else if(step.equalsIgnoreCase("lower from bucket 2"))
-        {
-            if (timer.milliseconds() > 200)
-            {
-                servoClawExtend.setPosition(armRetractedPosition);
-                armTarget = 50;
-                armDirection = "down";
-                slideTarget = 0;
-                timer.reset();
-                step = "reset encoders 2";
-            }
-        }
-        else if(step.equalsIgnoreCase("reset encoders 2"))
         {
             if(armTarget < -9999 && (slideTarget < 0 || timer.milliseconds() > 2000))
             {
