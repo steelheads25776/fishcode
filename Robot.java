@@ -10,7 +10,7 @@ import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.teamcode.hardware.EasyIMU;
+//import org.firstinspires.ftc.teamcode.hardware.EasyIMU;
 import org.opencv.core.Mat;
 
 public class Robot
@@ -52,6 +52,8 @@ public class Robot
     public int navCorrections = 0;
 
     public double navAcceleration = 0;
+
+    public double orientationSlowDistance;
 
     public double teleOpIMUOrientation;
     public double teleOpIMUOffset;
@@ -161,101 +163,6 @@ public class Robot
 
         motorClawArm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motorClawArm.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-    }
-
-
-    public void forward(double distance) // distance must be positive
-    {
-        //odometry.resetPosAndIMU();
-
-        currentTarget = getY() + distance;
-        double slowPosition = 400;
-        double slowSpeed = globalSpeed;
-        double stoppedY = 0.0;
-        while(getY() < currentTarget) // Y is positive while going forwards
-        {
-            if(currentTarget < slowPosition)
-            {
-                slowSpeed = (currentTarget/slowPosition) * globalSpeed;
-            }
-            motorFrontLeft.setPower(-slowSpeed);
-            motorFrontRight.setPower(-slowSpeed);
-            motorBackLeft.setPower(-slowSpeed);
-            motorBackRight.setPower(-slowSpeed);
-            stoppedY = currentTarget;
-            update();
-        }
-        motorFrontLeft.setPower(0.0);
-        motorFrontRight.setPower(0.0);
-        motorBackLeft.setPower(0.0);
-        motorBackRight.setPower(0.0);
-        YStoppedPosition = stoppedY;
-    }
-
-    public void backward(double distance) // distance must be positive
-    {
-        //odometry.resetPosAndIMU();
-
-
-        currentTarget = getY() - distance;
-        while(getY() > distance)//Y is negative when going backward
-        {
-
-            motorFrontLeft.setPower(globalSpeed);
-            motorFrontRight.setPower(globalSpeed);
-            motorBackLeft.setPower(globalSpeed);
-            motorBackRight.setPower(globalSpeed);
-            update();
-        }
-        motorFrontLeft.setPower(0.0);
-        motorFrontRight.setPower(0.0);
-        motorBackLeft.setPower(0.0);
-        motorBackRight.setPower(0.0);
-    }
-
-    public void left(double distance) //distance must be positive
-    {
-        //odometry.resetPosAndIMU();
-        //distance = distance * -1;
-
-        currentTarget = getX() - distance;
-
-        while(getX() > distance) // X is negative when going left
-        {
-            motorFrontLeft.setPower(globalSpeed);// strafe left
-            motorFrontRight.setPower(-globalSpeed);
-            motorBackLeft.setPower(-globalSpeed);
-            motorBackRight.setPower(globalSpeed);
-
-
-            update();
-        }
-        motorFrontLeft.setPower(0.0);
-        motorFrontRight.setPower(0.0);
-        motorBackLeft.setPower(0.0);
-        motorBackRight.setPower(0.0);
-    }
-
-    public void right(double distance) // distance must be positive
-    {
-        //odometry.resetPosAndIMU();
-        //distance = distance * -1;
-
-        currentTarget = getX() + distance;
-
-        while(getX() < distance)// X is positive when going right
-        {
-            motorFrontLeft.setPower(-globalSpeed);//strafe right
-            motorFrontRight.setPower(globalSpeed);
-            motorBackLeft.setPower(globalSpeed);
-            motorBackRight.setPower(-globalSpeed);
-
-            update();
-        }
-        motorFrontLeft.setPower(0.0);
-        motorFrontRight.setPower(0.0);
-        motorBackLeft.setPower(0.0);
-        motorBackRight.setPower(0.0);
     }
 
     public double[] navRotate(double orientationTarget, String rotationDirection, double rotationErrorTolerance)
@@ -953,14 +860,62 @@ public class Robot
         return positionYTarget;
     }
 
-    public double[] navToPosition(double positionXTarget, double positionYTarget, double positionOrientationTarget, boolean positionPrecise) // Y is forward and backwards - X is strafe (positive Y is forwards positive X is right)
+    public double[] navToPosition(double positionXTarget, double positionYTarget, double positionOrientationTarget, boolean positionPrecise, String rotationDirection) // Y is forward and backwards - X is strafe (positive Y is forwards positive X is right)
     {
+        odometry.update();
+
         double distanceToTarget = 0.0;
+        double distanceToTargetOrientation = 0.0;
+        double currentOrientation;
+        double rotationDistanceToSlow = 40;
+        double rotationErrorTolerance = 2.0;
 
-        if (positionXTarget > -10000) // -10000 means no target
+        double rotationPower = 0.0;
+        double powerMaxRotate = 1.0;
+        double powerMinRotate = 0.40;
+
+
+        if(positionOrientationTarget > -10000) // -10000 means no target
         {
-            odometry.update();
+            currentOrientation = getOrientationCurrent();
 
+            distanceToTargetOrientation = positionOrientationTarget - currentOrientation;
+
+
+            if(distanceToTargetOrientation < -180)
+            {
+                distanceToTargetOrientation += 360;
+            }
+            else if(distanceToTargetOrientation > 180)
+            {
+                distanceToTargetOrientation -= 360;
+            }
+
+            if(Math.abs(distanceToTargetOrientation) > 8.0)//max speed
+            {
+                rotationPower = powerMaxRotate;
+
+            }
+            else if(Math.abs(distanceToTargetOrientation) <= 8.0)//slow distance
+            {
+                rotationPower = powerMinRotate;
+            }
+
+            if(Math.abs(distanceToTargetOrientation) <= rotationErrorTolerance)
+            {
+                positionOrientationTarget = -10000;
+                rotationPower = 0.0;
+            }
+
+            if(rotationDirection.equalsIgnoreCase("clockwise"))
+            {
+                rotationPower *= -1;
+            }
+        }
+
+        if (positionXTarget > -10000 && positionOrientationTarget > -10000) // -10000 means no target
+        {
+            //
             double powerMax = 0.9;
             double powerMin = 0.20;
             /*
@@ -983,7 +938,6 @@ public class Robot
             double powerX = 0.0; // -1.0 - +1.0
             double powerY = 0.0; // -1.0 - +1.0
             double powerRotateMax = 0.7;
-            double powerRotate = 0.0; // -1.0 - +1.0
             double denominator = 1;
 
             double positionXCurrent = getX();
@@ -1120,12 +1074,12 @@ public class Robot
                     double rotationY = powerX * Math.sin(-currentRotation) + powerY * Math.cos(-currentRotation);
                     test = rotationX;
                     rotationX = rotationX * 1.1;
-                    double rightStickX = 0;
-                    denominator = Math.max(Math.abs(rotationY) + Math.abs(rotationX) + Math.abs(rightStickX), 1);
-                    motorFrontLeft.setPower(((rotationY + rotationX + rightStickX) / denominator) * motorPower);
-                    motorFrontRight.setPower(((rotationY - rotationX - rightStickX) / denominator) * motorPower);
-                    motorBackLeft.setPower(((rotationY - rotationX + rightStickX) / denominator) * motorPower);
-                    motorBackRight.setPower(((rotationY + rotationX - rightStickX) / denominator) * motorPower);
+                    //double rightStickX = 0;
+                    denominator = Math.max(Math.abs(rotationY) + Math.abs(rotationX) + Math.abs(rotationPower), 1);
+                    motorFrontLeft.setPower(((rotationY + rotationX + rotationPower) / denominator) * motorPower);
+                    motorFrontRight.setPower(((rotationY - rotationX - rotationPower) / denominator) * motorPower);
+                    motorBackLeft.setPower(((rotationY - rotationX + rotationPower) / denominator) * motorPower);
+                    motorBackRight.setPower(((rotationY + rotationX - rotationPower) / denominator) * motorPower);
                 }
             }
             else
@@ -1150,26 +1104,11 @@ public class Robot
             }
         }
 
-        double[] distanceReturn = new double[2];
+        double[] distanceReturn = new double[3];
         distanceReturn[0] = distanceToTarget;
         distanceReturn[1] = positionXTarget;
+        distanceReturn[2] = positionOrientationTarget;
         return distanceReturn;
-    }
-
-    public void armToGamePosition(String position)
-    {
-        if(position.equalsIgnoreCase("zero"))
-        {
-
-        }
-        else if(position.equalsIgnoreCase("bar"))
-        {
-
-        }
-        else if(position.equalsIgnoreCase("bucket"))
-        {
-
-        }
     }
 
     public void reset()
