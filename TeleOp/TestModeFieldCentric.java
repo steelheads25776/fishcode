@@ -78,7 +78,7 @@ public class TestModeFieldCentric extends LinearOpMode
     double servoPosition = 0.0;
 
     double clawOpenMaxPosition = 0.7;
-    double clawOpenPosition = 0.5;//left bumper
+    double clawOpenPosition = 0.4;//left bumper 0.5
     double clawClosedPosition = 0.0;//right bumper
 
     boolean clawExtended = false;
@@ -131,7 +131,7 @@ public class TestModeFieldCentric extends LinearOpMode
 
     double currentRotation;
 
-    float testRotateMulti = 3.0f;
+    double robotRotateSpeedMultiplier = 2.0;
 
     public void robotHang()
     {
@@ -270,12 +270,11 @@ public class TestModeFieldCentric extends LinearOpMode
         }
         else if (driveButtonX)
         {
-            imu.resetYaw();
-            //bot.resetSlideAndArm();
+            bot.resetSlideAndArm();
         }
         else if (driveButtonA)
         {
-            bot.reset();
+            bot.reset();//imu.resetYaw();
         }
 
 
@@ -283,15 +282,16 @@ public class TestModeFieldCentric extends LinearOpMode
 
     public void drive()
     {
+
         driveStickLeftX = gamepad1.left_stick_x * -1;
         driveStickLeftY = gamepad1.left_stick_y;
-        driveStickRightX = (gamepad1.right_stick_x * -1);
+        driveStickRightX = gamepad1.right_stick_x * -1;
         driveStickRightY = gamepad1.right_stick_y;
 
         driveTriggerLeft = gamepad1.left_trigger;
         driveTriggerRight = gamepad1.right_trigger;
 
-        currentRotation = bot.getTeleOpIMURotation();
+        currentRotation = bot.getTeleOpIMURotation();//imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
 
         if(armDpadDown || armDpadLeft || armDpadRight || armDpadUp || armRightStickX > 0.1 || armRightStickX < -0.1)
         {
@@ -324,16 +324,17 @@ public class TestModeFieldCentric extends LinearOpMode
             }
             else
             {
+                driveStickRightX *= robotRotateSpeedMultiplier;
                 double rotationX = driveStickLeftX * Math.cos(-currentRotation) - driveStickLeftY * Math.sin(-currentRotation);
                 double rotationY = driveStickLeftX * Math.sin(-currentRotation) + driveStickLeftY * Math.cos(-currentRotation);
 
                 rotationX = rotationX * 1.1;
 
                 double denominator = Math.max(Math.abs(rotationY) + Math.abs(rotationX) + Math.abs(driveStickRightX), 1);
-                motorFrontLeft.setPower(((rotationY + rotationX + (driveStickRightX * testRotateMulti)) / denominator) * motorspeed);
-                motorFrontRight.setPower(((rotationY - rotationX - (driveStickRightX * testRotateMulti)) / denominator) * motorspeed);
-                motorBackLeft.setPower(((rotationY - rotationX + (driveStickRightX * testRotateMulti)) / denominator) * motorspeed);
-                motorBackRight.setPower(((rotationY + rotationX - (driveStickRightX * testRotateMulti)) / denominator) * motorspeed);
+                motorFrontLeft.setPower(((rotationY + rotationX + driveStickRightX) / denominator) * motorspeed);
+                motorFrontRight.setPower(((rotationY - rotationX - driveStickRightX) / denominator) * motorspeed);
+                motorBackLeft.setPower(((rotationY - rotationX + driveStickRightX) / denominator) * motorspeed);
+                motorBackRight.setPower(((rotationY + rotationX - driveStickRightX) / denominator) * motorspeed);
             }
         }
 
@@ -676,7 +677,7 @@ public class TestModeFieldCentric extends LinearOpMode
     {
         armLeftStickY = gamepad2.left_stick_y;
         armRightStickY = gamepad2.right_stick_y;
-        bot.update();
+        odometry.update();
 
         //telemetry.addData("clawArm:", clawArm.getCurrentPosition());
 
@@ -691,10 +692,6 @@ public class TestModeFieldCentric extends LinearOpMode
         //telemetry.addData("LeftStickY:", armLeftStickY);
 
         //telemetry.addData("rotation mode", rotateMode);
-        telemetry.addData("internal IMU", imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS));
-        telemetry.addData("odometry IMU", bot.getRad());
-        telemetry.addData("proposed change", bot.getTeleOpIMURotation());
-        telemetry.addData("IMU offset", bot.teleOpIMUOffset);
         telemetry.addData("arm power", motorClawArm.getPower());
 
         telemetry.addData("FL power", motorFrontLeft.getPower());
