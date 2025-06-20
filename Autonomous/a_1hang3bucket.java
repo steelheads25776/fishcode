@@ -254,12 +254,16 @@ public class a_1hang3bucket extends OpMode
         {
             orientationTarget = 0;
             slideTarget = 0;
-            armTarget = 30;
             armDirection = "down";
+            armTarget = 0;
             step = "get square started";
         }
         else if(step.equalsIgnoreCase("get square started"))
         {
+            if((slideTarget >=0 || armTarget > -10000) && buttonArmStop.isPressed())
+            {
+                bot.resetSlideAndArm();
+            }
             if (slideTarget < 0 && armTarget < -9999 && orientationTarget < 0)
             {
                 step = "move to sample 1";
@@ -631,4 +635,3 @@ public class a_1hang3bucket extends OpMode
     }
 
 }
-
