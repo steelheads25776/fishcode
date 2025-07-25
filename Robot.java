@@ -515,7 +515,7 @@ public class Robot
                 {
                     if(armCurrent < 100)
                     {
-                        armPower = 0.1;
+                        armPower = 0.15;
                     }
                     else if(armCurrent < 300)
                     {
@@ -533,13 +533,13 @@ public class Robot
                     {
                         armPower = 0.4;
                     }
-                    motorClawArm.setPower(-0.1 - ((Math.abs(armTarget - armCurrent) / distanceToSlow) * armPower));
+                    motorClawArm.setPower(-0.15 - ((Math.abs(armTarget - armCurrent) / distanceToSlow) * armPower));
                 }
                 else
                 {
                     if(armCurrent < 100)
                     {
-                        armPower = 0.1;
+                        armPower = 0.15;
                     }
                     else if(armCurrent < 300)
                     {
@@ -860,140 +860,77 @@ public class Robot
         return positionYTarget;
     }
 
-    public double[] navToPosition(double positionXTarget, double positionYTarget, double positionOrientationTarget, boolean positionPrecise, String rotationDirection) // Y is forward and backwards - X is strafe (positive Y is forwards positive X is right)
+    public double[] navToPosition(double navXTarget, double navYTarget, boolean navPrecise, boolean navEngaged  )
     {
         odometry.update();
 
         double distanceToTarget = 0.0;
-        double distanceToTargetOrientation = 0.0;
-        double currentOrientation;
-        double rotationDistanceToSlow = 40;
-        double rotationErrorTolerance = 2.0;
+        double currentX = getX();
+        double currentY = getY();
+        double distanceToNavSlow = 300;
+        double navErrorTolerance = 15;
 
-        double rotationPower = 0.0;
-        double powerMaxRotate = 1.0;
-        double powerMinRotate = 0.40;
+        double powerMaxNav = 0.8;
+        double powerMinNav = 0.20;
+        double powerMotorNav;
 
-
-        if(positionOrientationTarget > -10000) // -10000 means no target
+        if (voltageStart > 13)
         {
-            currentOrientation = getOrientationCurrent();
-
-            distanceToTargetOrientation = positionOrientationTarget - currentOrientation;
-
-
-            if(distanceToTargetOrientation < -180)
-            {
-                distanceToTargetOrientation += 360;
-            }
-            else if(distanceToTargetOrientation > 180)
-            {
-                distanceToTargetOrientation -= 360;
-            }
-
-            if(Math.abs(distanceToTargetOrientation) > 8.0)//max speed
-            {
-                rotationPower = powerMaxRotate;
-
-            }
-            else if(Math.abs(distanceToTargetOrientation) <= 8.0)//slow distance
-            {
-                rotationPower = powerMinRotate;
-            }
-
-            if(Math.abs(distanceToTargetOrientation) <= rotationErrorTolerance)
-            {
-                positionOrientationTarget = -10000;
-                rotationPower = 0.0;
-            }
-
-            if(rotationDirection.equalsIgnoreCase("clockwise"))
-            {
-                rotationPower *= -1;
-            }
+            //powerMinRotate = 0.1;
+        }
+        else if (voltageStart >= 12.8)
+        {
+            //powerMinRotate = 0.13;
         }
 
-        if (positionXTarget > -10000 && positionOrientationTarget > -10000) // -10000 means no target
+        double bearingTarget = 0.0;
+        double valueX = 0.0;
+        double valueY = 0.0;
+        double currentRotation = getTeleOpIMURotation();
+
+        if (navEngaged)
         {
-            //
-            double powerMax = 0.9;
-            double powerMin = 0.20;
-            /*
-            if (voltageStart > 13.2)
+            double radiansAdd = 0.0;
+            double valueRotation = 0;
+            if ((navXTarget - currentX) < 0 && (navYTarget - currentY) < 0)
             {
-                powerMax = 0.75;
-                powerMin = 0.13;
+                radiansAdd = Math.toRadians(180);
             }
-            else if (voltageStart > 13)
+            else if ((navXTarget - currentX) >= 0 && (navYTarget - currentY) < 0)
             {
-                powerMax = 0.8;
-                powerMin = 0.15;
-            }
-            else if (voltageStart >= 12.8)
-            {
-                powerMax = 0.85;
-                powerMin = 0.18;
-            }
-            */
-            double powerX = 0.0; // -1.0 - +1.0
-            double powerY = 0.0; // -1.0 - +1.0
-            double powerRotateMax = 0.7;
-            double denominator = 1;
-
-            double positionXCurrent = getX();
-            double positionYCurrent = getY();
-            double positionOrientationCurrent = getOrientationCurrent();
-            boolean waypointPast = false;
-
-            /*
-            double distanceToTargetOrientation = positionOrientationTarget - positionOrientationCurrent;
-            // distanceToTarget gets converted to values between +180 to -180
-            if (distanceToTargetOrientation < -180)
-            {
-                distanceToTargetOrientation = distanceToTargetOrientation + 360;
-            }
-            else if (distanceToTargetOrientation > 180)
-            {
-                distanceToTargetOrientation = distanceToTargetOrientation - 360;
+                radiansAdd = Math.toRadians(180);
             }
 
-            if(Math.abs(distanceToTargetOrientation) > 1)
+            if ((navXTarget - currentX) >= 0 && (navYTarget - currentY) == 0)
             {
-                powerRotate = distanceToTargetOrientation / 5.0;
-                if (powerRotate > 1.0)
-                {
-                    powerRotate = 1.0;
-                }
-                // turned off rotation correction
-                powerRotate = 0.0;
+                bearingTarget = Math.toRadians(90);
             }
-
-             */
-
-            double distanceToSlow = 200;
-            double errorTolerance = 15;
-
-            double motorPower = powerMax;
-
-            double distanceToTargetX = positionXTarget - positionXCurrent;
-            double distanceToTargetY = positionYTarget - positionYCurrent;
-
-
-
-
-            if (Math.abs(distanceToTargetX) >= Math.abs(distanceToTargetY))
+            else if ((navXTarget - currentX) < 0 && (navYTarget - currentY) == 0)
             {
-                powerX = (distanceToTargetX / Math.abs(distanceToTargetX)); // * 1.2;
-                powerY = distanceToTargetY / Math.abs(distanceToTargetX);
+                bearingTarget = Math.toRadians(270);
             }
             else
             {
-                powerX = (distanceToTargetX / Math.abs(distanceToTargetY)); // * 1.2;
-                powerY = distanceToTargetY / Math.abs(distanceToTargetY);
+                bearingTarget = Math.atan((navXTarget - currentX) / (navYTarget - currentY)) + radiansAdd;
             }
 
-            powerX = powerX * -1;
-            distanceToTarget = Math.sqrt((Math.pow((positionXTarget - positionXCurrent), 2)) + (Math.pow((positionYTarget - positionYCurrent), 2)));
+            valueX = Math.sin(bearingTarget);
+            valueY = Math.cos(bearingTarget);
+
+            if (valueX >= valueY && valueY != 0)
+            {
+                valueY = valueY / Math.abs(valueX);
+                valueX = valueX / Math.abs(valueX);
+            }
+            else if (valueY > valueX && valueX != 0)
+            {
+                valueX = valueX / Math.abs(valueY);
+                ;
+                valueY = valueY / Math.abs(valueY);
+            }
+
+
+            distanceToTarget = Math.abs(Math.sqrt((Math.pow((navXTarget - currentX), 2)) + (Math.pow((navYTarget - currentY), 2))));
 
             if (distanceToTargetPrevious == 10000)
             {
@@ -1002,85 +939,58 @@ public class Robot
             }
 
             navAcceleration = navAcceleration + 0.1;
-            if(navAcceleration < 1)
+            if (navAcceleration < 1)
             {
-                powerMax = powerMax * navAcceleration;
+                powerMaxNav = powerMaxNav * navAcceleration;
             }
 
-            test = powerX;
-            if(distanceToTarget > distanceToTargetPrevious)
-            {
-                waypointPast = true;
-                //test = 99999;
-            }
             distanceTraveledFromPrevious = Math.abs(distanceToTarget - distanceToTargetPrevious);
             distanceToTargetPrevious = distanceToTarget;
-            //test = distanceTraveledFromPrevious;
 
-            if (distanceToTarget < distanceToSlow)
+            powerMotorNav = powerMaxNav;
+
+            if (distanceToTarget < distanceToNavSlow)
             {
-                powerMax = 0.4;
-                double powerUsed = powerMin;
+                powerMaxNav = 0.5;
+                double powerUsed = powerMinNav;
                 // slow down
 
-                if (Math.abs(positionXTarget - positionXCurrent) > Math.abs(positionYTarget - positionYCurrent))
+                if (distanceToTarget < 100)
                 {
-                    // needs more power to strafe
-                    powerUsed = powerMin + .05;
-                }
-                if (positionPrecise)
-                {
-                    if (distanceToTarget < 100)
-                    {
-                        motorPower = powerUsed;
-                    }
-                    else
-                    {
-                        motorPower = ((powerMax - powerUsed) * (distanceToTarget / distanceToSlow)) + powerUsed;
-                    }
-                }
-            }
-
-            if (distanceToTarget > errorTolerance)
-            {
-                motorPower = powerMax;
-                powerY = powerY * (-1.0);
-
-                if (positionPrecise == false && (distanceToTarget < 100 || waypointPast == true))
-                {
-                    positionXTarget = -10000.0;
-                    positionYTarget = -10000.0;
-                    distanceToTargetPrevious = 1000;
-                    waypointPast = false;
+                    powerMotorNav = powerMinNav;
                 }
                 else
                 {
-                    if (distanceTraveledFromPrevious > 15 && distanceToTarget < distanceToSlow && positionPrecise == true)
-                    {
-                        motorPower = -0.1;
-                    }
-
-                    if (Math.abs(distanceToTarget) < errorTolerance + 10)
-                    {
-                        navCorrections++;
-                    }
-                    else
-                    {
-                        navCorrections = 0;
-                    }
-
-                    double currentRotation = getRad();
-                    double rotationX = powerX * Math.cos(-currentRotation) - powerY * Math.sin(-currentRotation);
-                    double rotationY = powerX * Math.sin(-currentRotation) + powerY * Math.cos(-currentRotation);
-                    test = rotationX;
-                    rotationX = rotationX * 1.1;
-                    //double rightStickX = 0;
-                    denominator = Math.max(Math.abs(rotationY) + Math.abs(rotationX) + Math.abs(rotationPower), 1);
-                    motorFrontLeft.setPower(((rotationY + rotationX + rotationPower) / denominator) * motorPower);
-                    motorFrontRight.setPower(((rotationY - rotationX - rotationPower) / denominator) * motorPower);
-                    motorBackLeft.setPower(((rotationY - rotationX + rotationPower) / denominator) * motorPower);
-                    motorBackRight.setPower(((rotationY + rotationX - rotationPower) / denominator) * motorPower);
+                    powerMotorNav = ((powerMaxNav - powerMinNav) * (distanceToTarget / distanceToNavSlow)) + powerMinNav;
                 }
+            }
+
+            if (distanceToTarget > navErrorTolerance) // && Math.abs(distanceToTargetOrientation) > rotationErrorTolerance)
+            {
+                if (distanceTraveledFromPrevious > 15 && distanceToTarget < distanceToNavSlow)
+                {
+                    powerMotorNav = 0.0;
+                }
+
+                if (distanceToTarget < navErrorTolerance + 10)
+                {
+                    navCorrections++;
+                }
+                else
+                {
+                    navCorrections = 0;
+                }
+
+                double rotationX = (valueX * Math.cos(-currentRotation) - valueY * Math.sin(-currentRotation)) * -1.0;
+                double rotationY = (valueX * Math.sin(-currentRotation) + valueY * Math.cos(-currentRotation)) * -1.0;
+
+                //rotationX = rotationX * 1.1;
+
+                double denominator = Math.max(Math.abs(rotationY) + Math.abs(rotationX) + Math.abs(valueRotation), 1);
+                motorFrontLeft.setPower(((rotationY + rotationX + valueRotation) / denominator) * powerMotorNav);
+                motorFrontRight.setPower(((rotationY - rotationX - valueRotation) / denominator) * powerMotorNav);
+                motorBackLeft.setPower(((rotationY - rotationX + valueRotation) / denominator) * powerMotorNav);
+                motorBackRight.setPower(((rotationY + rotationX - valueRotation) / denominator) * powerMotorNav);
             }
             else
             {
@@ -1091,24 +1001,352 @@ public class Robot
                 sleep(100);
 
                 odometry.update();
-                positionXCurrent = getX();
-                positionYCurrent = getY();
-                distanceToTarget = Math.sqrt((Math.pow((positionXTarget - positionXCurrent), 2)) + (Math.pow((positionYTarget - positionYCurrent), 2)));
-                if (distanceToTarget < errorTolerance || navCorrections >= 3)
+                currentX = getX();
+                currentY = getY();
+
+                distanceToTarget = Math.abs(Math.sqrt((Math.pow((navXTarget - currentX), 2)) + (Math.pow((navYTarget - currentY), 2))));
+
+                if ((distanceToTarget <= navErrorTolerance) || navCorrections >= 3)
                 {
 
-                    positionXTarget = -10000.0;
-                    positionYTarget = -10000.0;
+                    navEngaged = false;
                     navCorrections = 0;
                 }
             }
         }
+        test = bearingTarget;
 
-        double[] distanceReturn = new double[3];
-        distanceReturn[0] = distanceToTarget;
-        distanceReturn[1] = positionXTarget;
-        distanceReturn[2] = positionOrientationTarget;
-        return distanceReturn;
+        double[] navReturn = new double[3];
+        if(navEngaged)
+        {
+            navReturn[0] = 1;
+        }
+        else
+        {
+            navReturn[0] = -1;
+        }
+        navReturn[1] = distanceToTarget;
+        navReturn[2] = 0.0;
+        return navReturn;
+    }
+
+    public double[] navToPositionAndRotate(double navXTarget, double navYTarget, double navOrientationTarget,
+                                  boolean navOnlyRotate, boolean navPrecise, boolean navEngaged  )
+    {
+        odometry.update();
+
+        double distanceToTarget = 0.0;
+        double distanceToTargetOrientation = 0.0;
+        double currentOrientation = getOrientationCurrent();
+        double currentX = getX();
+        double currentY = getY();
+        double rotationErrorTolerance = 2.0;
+        double distanceToRotationSlow = 40; // slow rotational speed on linear function if below this value
+        double distanceToNavSlow = 200;
+        double navErrorTolerance = 20;
+
+        double powerMaxRotate = 1.0;
+        double powerMinRotate = 0.20;
+        double powerMaxNav = 1.0;
+        double powerMinNav = 0.25;
+        double powerMotorNav = powerMaxNav;
+        if (voltageStart > 13)
+        {
+            powerMinRotate = 0.2;
+        }
+        else if (voltageStart >= 12.8)
+        {
+            powerMinRotate = 0.22;
+        }
+
+        double bearingTarget = 0.0;
+        double valueX = 0.0;
+        double valueY = 0.0;
+        double valueRotation = 0.0;
+        double currentRotation = getTeleOpIMURotation();
+        double rotationDirection = 1.0;
+
+        if (navEngaged)
+        {
+            distanceToTargetOrientation = navOrientationTarget - currentOrientation;
+
+            if(distanceToTargetOrientation < -180)
+            {
+                distanceToTargetOrientation += 360;
+            }
+            else if(distanceToTargetOrientation > 180)
+            {
+                distanceToTargetOrientation -= 360;
+            }
+
+            if(distanceToTargetOrientation < 0)
+            {
+                rotationDirection = -1.0;
+            }
+
+            if (Math.abs(distanceToTargetOrientation) <= rotationErrorTolerance)
+            {
+                if(navOnlyRotate)
+                {
+                    // stop rotation if still within error after short sleep
+                    motorFrontLeft.setPower(0.0);
+                    motorFrontRight.setPower(0.0);
+                    motorBackLeft.setPower(0.0);
+                    motorBackRight.setPower(0.0);
+                    sleep(100);
+                    odometry.update();
+                    distanceToTargetOrientation = navOrientationTarget - getOrientationCurrent();
+
+                    // distanceToTarget gets converted to values between +180 to -180
+                    if (distanceToTargetOrientation < -180)
+                    {
+                        distanceToTargetOrientation += 360;
+                    }
+                    else if (distanceToTargetOrientation > 180)
+                    {
+                        distanceToTargetOrientation -= 360;
+                    }
+
+                    if (distanceToTargetOrientation > 0)
+                    {
+                        rotationDirection = -1.0;
+                    }
+                }
+                if (Math.abs(distanceToTargetOrientation) <= rotationErrorTolerance)
+                {
+                    valueRotation = 0.0;
+                    if(navOnlyRotate)
+                    {
+                        motorFrontLeft.setPower(0);
+                        motorFrontRight.setPower(0);
+                        motorBackLeft.setPower(0);
+                        motorBackRight.setPower(0);
+                        navEngaged = false;
+                    }
+                }
+                else
+                {
+                    valueRotation = powerMinRotate * rotationDirection;
+                }
+            }
+            else if (Math.abs(distanceToTargetOrientation) < 8.0)
+            {
+                // slow when close to target
+                valueRotation = powerMinRotate * rotationDirection;
+            }
+            else if (Math.abs(distanceToTargetOrientation) <= distanceToRotationSlow)
+            {
+                if ((Math.abs(odometry.getHeadingVelocity() * (180 / Math.PI)) < 5) && Math.abs(distanceToTargetOrientation) > 10)
+                {
+                    powerMaxRotate = 0.8;
+                }
+                else
+                {
+                    powerMaxRotate = 0.5;
+                }
+
+                // slow rotation using linear function based on distanceToTarget
+                if (Math.abs(odometry.getHeadingVelocity() * (180 / Math.PI)) > 120)
+                {
+                    valueRotation = 0;
+                }
+                else
+                {
+                    if (Math.abs(odometry.getHeadingVelocity() * (180 / Math.PI)) < 5)
+                    {
+                        powerMinRotate = 0.15;
+                    }
+                    valueRotation = (((powerMaxRotate - powerMinRotate) *
+                            (Math.abs(distanceToTargetOrientation) / distanceToRotationSlow)) + powerMinRotate) * rotationDirection;
+                }
+            }
+            else
+            {
+                valueRotation = powerMaxRotate * rotationDirection;
+            }
+
+            if(navOnlyRotate)
+            {
+                motorFrontLeft.setPower((valueRotation) * -1);
+                motorFrontRight.setPower((valueRotation));
+                motorBackLeft.setPower((valueRotation) * -1);
+                motorBackRight.setPower((valueRotation));
+            }
+            else
+            {
+                double radiansAdd = 0.0;
+                if ((navXTarget - currentX) < 0 && (navYTarget - currentY) < 0)
+                {
+                    radiansAdd = Math.toRadians(180);
+                }
+                else if ((navXTarget - currentX) >= 0 && (navYTarget - currentY) < 0)
+                {
+                    radiansAdd = Math.toRadians(180);
+                }
+
+                if ((navXTarget - currentX) >= 0 && (navYTarget - currentY) == 0)
+                {
+                    bearingTarget = Math.toRadians(90);
+                }
+                else if ((navXTarget - currentX) < 0 && (navYTarget - currentY) == 0)
+                {
+                    bearingTarget = Math.toRadians(270);
+                }
+                else
+                {
+                    bearingTarget = Math.atan((navXTarget - currentX) / (navYTarget - currentY)) + radiansAdd;
+                }
+
+                valueX = Math.sin(bearingTarget);
+                valueY = Math.cos(bearingTarget);
+
+                if (valueX >= valueY && valueY != 0)
+                {
+                    valueY = valueY / Math.abs(valueX);
+                    valueX = valueX / Math.abs(valueX);
+                }
+                else if (valueY > valueX && valueX != 0)
+                {
+                    valueX = valueX / Math.abs(valueY);
+                    ;
+                    valueY = valueY / Math.abs(valueY);
+                }
+
+                distanceToTarget = Math.abs(Math.sqrt((Math.pow((navXTarget - currentX), 2)) + (Math.pow((navYTarget - currentY), 2))));
+
+                if (distanceToTargetPrevious == 10000)
+                {
+                    distanceToTargetPrevious = distanceToTarget;
+                    navAcceleration = 0;
+                }
+
+                navAcceleration = navAcceleration + 0.1;
+                if (navAcceleration < 1)
+                {
+                    powerMaxNav = powerMaxNav * navAcceleration;
+                }
+
+                distanceTraveledFromPrevious = Math.abs(distanceToTarget - distanceToTargetPrevious);
+
+                powerMotorNav = powerMaxNav;
+
+                if (distanceToTarget < distanceToNavSlow)
+                {
+                    if(navPrecise)
+                    {
+                        powerMaxNav = 0.5;
+                        double powerUsed = powerMinNav;
+                        // slow down
+
+                        if (distanceToTarget < 100)
+                        {
+                            powerMotorNav = powerMinNav;
+                        }
+                        else
+                        {
+                            powerMotorNav = ((powerMaxNav - powerMinNav) * (distanceToTarget / distanceToNavSlow)) + powerMinNav;
+                        }
+                    }
+                }
+
+                if(!navPrecise && (distanceToTarget <= navErrorTolerance + 20))
+                {
+                    //motorFrontLeft.setPower(0);
+                    //motorFrontRight.setPower(0);
+                    //motorBackLeft.setPower(0);
+                    //motorBackRight.setPower(0);
+                    navEngaged = false;
+                }
+                else if (distanceToTarget > navErrorTolerance || Math.abs(distanceToTargetOrientation) > rotationErrorTolerance)
+                {
+                    if(navPrecise)
+                    {
+                        if (distanceTraveledFromPrevious > 15 && distanceToTarget < distanceToNavSlow)
+                        {
+                            powerMotorNav = 0.0;
+                        }
+
+                        if (distanceToTarget < navErrorTolerance + 10)
+                        {
+                            navCorrections++;
+                        }
+                        else
+                        {
+                            navCorrections = 0;
+                        }
+                    }
+
+                    double rotationX = (valueX * Math.cos(-currentRotation) - valueY * Math.sin(-currentRotation)) * -1.0;
+                    double rotationY = (valueX * Math.sin(-currentRotation) + valueY * Math.cos(-currentRotation)) * -1.0;
+
+                    //rotationX = rotationX * 1.1;
+
+                    if(distanceToTarget <= navErrorTolerance && Math.abs(distanceToTargetOrientation) > rotationErrorTolerance)
+                    {
+                        motorFrontLeft.setPower((valueRotation) * -1);
+                        motorFrontRight.setPower((valueRotation));
+                        motorBackLeft.setPower((valueRotation) * -1);
+                        motorBackRight.setPower((valueRotation));
+                    }
+                    else
+                    {
+                        double denominator = Math.max(Math.abs(rotationY) + Math.abs(rotationX) + Math.abs(valueRotation), 1);
+                        motorFrontLeft.setPower(((rotationY + rotationX - valueRotation) / denominator) * powerMotorNav);
+                        motorFrontRight.setPower(((rotationY - rotationX + valueRotation) / denominator) * powerMotorNav);
+                        motorBackLeft.setPower(((rotationY - rotationX - valueRotation) / denominator) * powerMotorNav);
+                        motorBackRight.setPower(((rotationY + rotationX + valueRotation) / denominator) * powerMotorNav);
+                    }
+                }
+                else
+                {
+                    motorFrontLeft.setPower(0);
+                    motorFrontRight.setPower(0);
+                    motorBackLeft.setPower(0);
+                    motorBackRight.setPower(0);
+                    sleep(100);
+
+                    odometry.update();
+                    currentOrientation = getOrientationCurrent();
+                    currentX = getX();
+                    currentY = getY();
+
+                    distanceToTarget = Math.abs(Math.sqrt((Math.pow((navXTarget - currentX), 2)) + (Math.pow((navYTarget - currentY), 2))));
+                    distanceToTargetOrientation = navOrientationTarget - currentOrientation;
+                    if (distanceToTargetOrientation < -180)
+                    {
+                        distanceToTargetOrientation = distanceToTargetOrientation + 360;
+                    }
+                    else if (distanceToTargetOrientation > 180)
+                    {
+                        distanceToTargetOrientation = distanceToTargetOrientation - 360;
+                    }
+
+                    if ((distanceToTarget <= navErrorTolerance && Math.abs(distanceToTargetOrientation) <= rotationErrorTolerance)
+                            || navCorrections >= 3)
+                    {
+
+                        navEngaged = false;
+                        navCorrections = 0;
+                    }
+                }
+            }
+        }
+        test = distanceToTargetOrientation;
+
+        distanceToTargetPrevious = distanceToTarget;
+
+        double[] navReturn = new double[3];
+        if(navEngaged)
+        {
+            navReturn[0] = 1;
+        }
+        else
+        {
+            navReturn[0] = -1;
+        }
+        navReturn[1] = distanceToTarget;
+        navReturn[2] = distanceToTargetOrientation;
+        return navReturn;
     }
 
     public void reset()
