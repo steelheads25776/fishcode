@@ -313,10 +313,10 @@ public class a_4hangnew extends OpMode
         }
         else if(step.equalsIgnoreCase("grab and rotate to drop 1"))
         {
-            if(timer.milliseconds() > 200)
+            if(timer.milliseconds() > 300)//200
             {
                 servoClawGrabber.setPosition(clawClosedPosition);
-                if(timer.milliseconds() > 500)
+                if(timer.milliseconds() > 600)//500
                 {
                     navEngaged = true;
                     navOrientationTarget = 195;
