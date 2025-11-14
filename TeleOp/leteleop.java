@@ -31,6 +31,11 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 @TeleOp
 public class leteleop extends LinearOpMode
 {
+    double shootingPower = 0.62;//0.75
+    double powerRotateCWMax = -0.11;
+    double powerRotateCWSlow = -0.05;
+    double powerRotateCCWMax = -0.14;
+    double powerRotateCCWSlow = -0.07;
     GoBildaPinpointDriver odometry;
     Robot bot;
     OpenCvWebcam testCam = null;
@@ -85,13 +90,14 @@ public class leteleop extends LinearOpMode
     boolean auxBumperLeft, auxBumperRight;
     double auxStickLeftX, auxStickLeftY, auxStickRightX, auxStickRightY;
     double auxTriggerRight, auxTriggerLeft;
+    boolean auxTriggerRightPressed, auxTriggerLeftPressed;
     boolean auxXPressed;
+    boolean auxYPressed;
     boolean auxDpadPressed;
     boolean auxAPressed;
     boolean auxBPressed;
     boolean auxBumperLeftPressed;
     boolean auxBumperRightPressed;
-    boolean auxYPressed;
     boolean launchEngaged = false;
     int loaderState = 0;
     int shooterState = 0;
@@ -183,27 +189,45 @@ public class leteleop extends LinearOpMode
         if(auxA)
         {
             auxAPressed = true;
+            auxBPressed = false;
         }
-        if(auxB)
+        else if(auxB)
         {
+            // reverse intake while B pressed
             intakeMotor.setPower(-0.45);//-0.37
             auxBPressed = true;
-        }
-        if((!auxA && (auxAPressed || auxBPressed) && intakeState == 0) && !auxB)
-        {
-            intakeMotor.setPower(1.0);
             auxAPressed = false;
-            auxBPressed = false;
-            intakeState = 1;
         }
-        else if((!auxA && (auxAPressed || auxBPressed) && intakeState == 1) && !auxB)
+        else if(auxBPressed)
         {
-            intakeMotor.setPower(0.0);
-            auxAPressed = false;
             auxBPressed = false;
-            intakeState = 0;
         }
-        //intakeMotor.setPower(leftStickY);
+        else if(intakeState == 1)
+        {
+            if(!auxAPressed)
+            {
+                intakeMotor.setPower(1.0);
+            }
+            else
+            {
+                intakeMotor.setPower(0.0);
+                auxAPressed = false;
+                intakeState = 0;
+            }
+        }
+        else if(intakeState == 0)
+        {
+            if(!auxAPressed)
+            {
+                intakeMotor.setPower(0.0);
+            }
+            else
+            {
+                intakeMotor.setPower(1.0);
+                auxAPressed = false;
+                intakeState = 1;
+            }
+        }
     }
 
     public void magazine()
@@ -256,34 +280,109 @@ public class leteleop extends LinearOpMode
 
     }
 
+    public void fixShooter()
+    {
+        auxY = gamepad2.y;
+        if(auxY)
+        {
+            auxYPressed = true;
+        }
+        if(auxY && auxYPressed)
+        {
+            launchEngaged = false;
+            launchStep = "none";
+
+            servoLoaderAssist.setPower(-1.0);
+            servoLoaderStartRight.setPower(-1.0);
+            servoLoaderStartLeft.setPower(1.0);
+            motorShooterRight.setPower(shootingPower);
+            motorShooterLeft.setPower(shootingPower);
+        }
+        else if(!auxY && auxYPressed)
+        {
+
+            servoLoaderAssist.setPower(0.0);
+            servoLoaderStartRight.setPower(0.0);
+            servoLoaderStartLeft.setPower(0.0);
+            motorShooterRight.setPower(0.0);
+            motorShooterLeft.setPower(0.0);
+            auxYPressed = false;
+        }
+    }
+
+    public void fixMagazine()
+    {
+        auxDpadL = gamepad2.dpad_left;//disengage
+        auxDpadU = gamepad2.dpad_up;//up power value
+        auxDpadD = gamepad2.dpad_down;//lower power value
+
+        if(auxDpadL)
+        {
+            auxDpadLPressed = true;
+        }
+        if(auxDpadU)
+        {
+            auxDpadUPressed = true;
+        }
+        if(auxDpadD)
+        {
+            auxDpadDPressed = true;
+        }
+
+
+        if(!auxDpadL && auxDpadLPressed)
+        {
+            magazineEngaged = false;
+            auxDpadLPressed = false;
+        }
+        if(!auxDpadU && auxDpadUPressed)
+        {
+            powerRotateCWMax -= 0.01;
+            powerRotateCWSlow -= 0.01;
+            powerRotateCCWMax -= 0.01;
+            powerRotateCCWSlow -= 0.01;
+
+            auxDpadUPressed = false;
+        }
+        if(!auxDpadD && auxDpadDPressed)
+        {
+            powerRotateCWMax += 0.01;
+            powerRotateCWSlow += 0.01;
+            powerRotateCCWMax += 0.01;
+            powerRotateCCWSlow += 0.01;
+
+            auxDpadDPressed = false;
+        }
+    }
+
     public void launch()
     {
-        auxDpadU = gamepad2.dpad_up;  // launch current
-        auxDpadD = gamepad2.dpad_down;  // launch all
+        auxTriggerLeft = gamepad2.left_trigger;  // launch current
+        auxTriggerRight = gamepad2.right_trigger;  // launch all
 
         if(!launchEngaged)
         {
-            if (auxDpadU)
+            if (auxTriggerRight >= 0.3)
             {
-                auxDpadUPressed = true;
+                auxTriggerRightPressed = true;
             }
-            if (auxDpadD)
+            if (auxTriggerLeft >= 0.3)
             {
-                auxDpadDPressed = true;
+                auxTriggerLeftPressed = true;
             }
 
-            if (!auxDpadU && auxDpadUPressed)
+            if (auxTriggerLeft < 0.3 && auxTriggerLeftPressed)
             {
                 launchEngaged = true;
                 launchType = "current";
-                auxDpadUPressed = false;
+                auxTriggerLeftPressed = false;
             }
 
-            if (!auxDpadD && auxDpadDPressed)
+            if (auxTriggerRight < 0.3 && auxTriggerRightPressed)
             {
                 launchEngaged = true;
                 launchType = "all";
-                auxDpadDPressed = false;
+                auxTriggerRightPressed = false;
             }
         }
 
@@ -296,6 +395,8 @@ public class leteleop extends LinearOpMode
             }
             else if (launchStep.equalsIgnoreCase("a1 - initial position") && !magazineEngaged)
             {
+                intakeMotor.setPower(0.0);
+
                 servoLoaderAssist.setPower(-1.0);
                 servoLoaderStartRight.setPower(-1.0);
                 servoLoaderStartLeft.setPower(1.0);
@@ -307,13 +408,13 @@ public class leteleop extends LinearOpMode
             else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 500)
             {
                 servoLifter.setPosition(lifterServoDown);
-                motorShooterLeft.setPower(0.7);
-                motorShooterRight.setPower(0.7);
+                motorShooterLeft.setPower(shootingPower);
+                motorShooterRight.setPower(shootingPower);
 
                 stepTimer.reset();
                 launchStep = "a1 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 800)
+            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 700)
             {
                 axonTargetPosition += 120;
                 if(axonTargetPosition < 0)
@@ -326,9 +427,103 @@ public class leteleop extends LinearOpMode
                 }
                 axonDirection = "cw";
                 magazineEngaged = true;
-                launchStep = "a1 - get next artifact";
+                launchStep = "a2 - get next artifact";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - get next artifact") && !magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a2 - get next artifact") && !magazineEngaged)
+            {
+                if(launchType.equalsIgnoreCase("current"))
+                {
+                    servoLoaderAssist.setPower(0.0);
+                    servoLoaderStartRight.setPower(0.0);
+                    servoLoaderStartLeft.setPower(0.0);
+                    motorShooterLeft.setPower(0.0);
+                    motorShooterRight.setPower(0.0);
+
+                    launchEngaged = false;
+                    launchStep = "none";
+                }
+                else if(launchType.equalsIgnoreCase("all"))
+                {
+                    launchStep = "a2 - initial position";
+                }
+            }
+            else if (launchStep.equalsIgnoreCase("a2 - initial position") && !magazineEngaged)
+            {
+                /*
+                servoLoaderAssist.setPower(-1.0);
+                servoLoaderStartRight.setPower(-1.0);
+                servoLoaderStartLeft.setPower(1.0);
+                 */
+                servoLifter.setPosition(lifterServoUp);
+
+                stepTimer.reset();
+                launchStep = "a2 - lifter engaged";
+            }
+            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 500)
+            {
+                servoLifter.setPosition(lifterServoDown);
+                motorShooterLeft.setPower(shootingPower);
+                motorShooterRight.setPower(shootingPower);
+
+                stepTimer.reset();
+                launchStep = "a2 - drop lifter";
+            }
+            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 700)
+            {
+                axonTargetPosition += 120;
+                if(axonTargetPosition < 0)
+                {
+                    axonTargetPosition += 360;
+                }
+                else if(axonTargetPosition > 360)
+                {
+                    axonTargetPosition -= 360;
+                }
+                axonDirection = "cw";
+                magazineEngaged = true;
+                launchStep = "a3 - get next artifact";
+            }
+            else if (launchStep.equalsIgnoreCase("a3 - get next artifact") && !magazineEngaged)
+            {
+                launchStep = "a3 - initial position";
+            }
+            else if (launchStep.equalsIgnoreCase("a3 - initial position") && !magazineEngaged)
+            {
+                /*
+                servoLoaderAssist.setPower(-1.0);
+                servoLoaderStartRight.setPower(-1.0);
+                servoLoaderStartLeft.setPower(1.0);
+                 */
+                servoLifter.setPosition(lifterServoUp);
+
+                stepTimer.reset();
+                launchStep = "a3 - lifter engaged";
+            }
+            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 500)
+            {
+                servoLifter.setPosition(lifterServoDown);
+                motorShooterLeft.setPower(shootingPower);
+                motorShooterRight.setPower(shootingPower);
+
+                stepTimer.reset();
+                launchStep = "a3 - drop lifter";
+            }
+            else if (launchStep.equalsIgnoreCase("a3 - drop lifter") && stepTimer.milliseconds() > 1000)
+            {
+                axonTargetPosition += 120;
+                if(axonTargetPosition < 0)
+                {
+                    axonTargetPosition += 360;
+                }
+                else if(axonTargetPosition > 360)
+                {
+                    axonTargetPosition -= 360;
+                }
+                axonDirection = "cw";
+                magazineEngaged = true;
+                launchStep = "a3 - turn off launcher";
+            }
+            else if (launchStep.equalsIgnoreCase("a3 - turn off launcher") && !magazineEngaged)
             {
                 servoLoaderAssist.setPower(0.0);
                 servoLoaderStartRight.setPower(0.0);
@@ -420,8 +615,8 @@ public class leteleop extends LinearOpMode
 
         if(!auxDpadD && auxDpadPressed && shooterState == 0)
         {
-            motorShooterLeft.setPower(0.75);
-            motorShooterRight.setPower(0.75);
+            motorShooterLeft.setPower(shootingPower);
+            motorShooterRight.setPower(shootingPower);
             //motorShooterLeft.setVelocity(1999);
             //motorShooterRight.setVelocity(1999);
             auxDpadPressed = false;
@@ -440,6 +635,11 @@ public class leteleop extends LinearOpMode
     }
     public void showTelemetry()
     {
+        telemetry.addData("CW max", powerRotateCWMax);
+        telemetry.addData("CW slow", powerRotateCWSlow);
+        telemetry.addData("CCW max", powerRotateCCWMax);
+        telemetry.addData("CCW slow", powerRotateCCWSlow);
+
         telemetry.addData("launch step", launchStep);
         telemetry.addData("odometry Y", bot.getY());
         telemetry.addData("odometry x", bot.getX());
@@ -464,8 +664,6 @@ public class leteleop extends LinearOpMode
     {
         imu = hardwareMap.get(IMU.class, "imu");
         imu.initialize(parameters);
-
-
 
         servoLoaderStartLeft = hardwareMap.get(CRServo.class, "StartLeft");
         servoLoaderStartRight = hardwareMap.get(CRServo.class, "StartRight");
@@ -551,18 +749,13 @@ public class leteleop extends LinearOpMode
     }
     private void axonToPosition(double target, String direction)
     {
-        double powerRotateCWMax = -0.11;
-        double powerRotateCWSlow = -0.05;
-        double powerRotateCCWMax = -0.14;
-        double powerRotateCCWSlow = -0.07;
-
-        double powerRotateMax = -0.1;
-        double powerRotateSlow = -0.05;
+        powerRotateCWMax = -0.11;
+        powerRotateCWSlow = -0.05;
+        powerRotateCCWMax = -0.14;
+        powerRotateCCWSlow = -0.07;
 
         double currentPos = (axonEncoder.getVoltage() / 3.3) * 360;
         double distanceToTarget = currentPos - target;
-
-
 
         if(Math.abs(distanceToTarget) >= 30)
         {
@@ -618,6 +811,8 @@ public class leteleop extends LinearOpMode
         axonDirection = "cw";
         while(opModeIsActive())
         {
+            fixShooter();
+            fixMagazine();
             if(!launchEngaged)
             {
                 drive();
