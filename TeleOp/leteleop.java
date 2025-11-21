@@ -1,9 +1,5 @@
 package org.firstinspires.ftc.teamcode.TeleOp;
 
-import android.provider.FontRequest;
-import android.transition.Slide;
-
-import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.AnalogInput;
@@ -11,18 +7,13 @@ import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
-import org.firstinspires.ftc.teamcode.RTPAxon;
 import org.firstinspires.ftc.teamcode.Robot;
-import org.opencv.*;
-import org.opencv.core.Mat;
-import org.opencv.imgproc.Imgproc;
-import org.firstinspires.ftc.vision.VisionPortal;
 import org.openftc.easyopencv.*;
 
 
@@ -41,10 +32,9 @@ public class leteleop extends LinearOpMode
     OpenCvWebcam testCam = null;
     DcMotor motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight;
     DcMotorEx motorShooterRight, motorShooterLeft;
-    IMU imu;
-    IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.RIGHT, RevHubOrientationOnRobot.UsbFacingDirection.UP));
+    //IMU imu;
+    //IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.RIGHT, RevHubOrientationOnRobot.UsbFacingDirection.UP));
 
-    private RTPAxon testAxon;
 
 
     CRServo axon;
@@ -63,7 +53,10 @@ public class leteleop extends LinearOpMode
     boolean driveX;//reset orientation
     boolean driveBumperRight;
     boolean driveBumperLeft;
-    double currentRotation;
+    double currentOrientation;
+    double currentOrientationRad;
+    double axonPreviousPosition = -1000;
+    int axonFrozen = 0;
     double driveTriggerLeft;//high speed on drive
     double driveTriggerRight;//slow speed on drive
     boolean driveDpadL;
@@ -79,7 +72,7 @@ public class leteleop extends LinearOpMode
     double motorspeedslower = 0.5;
     double slowRotateSpeed = 0.55;
     double robotRotateSpeedMultiplier = 2.0;
-    double axonTargetPosition = 41;
+    double axonTargetPosition = 43;
     String axonDirection = "cw";
     String launchType = "";
     String launchStep = "None";
@@ -105,7 +98,7 @@ public class leteleop extends LinearOpMode
     int lifterServoState = 0;
     int magState = 0;
     boolean bumperRightPressed;
-    final int initialTarget = 41;
+    final int initialTarget = 43;
     ElapsedTime testTimer;
     ElapsedTime stepTimer;
     boolean magazineEngaged = false;
@@ -115,17 +108,27 @@ public class leteleop extends LinearOpMode
     double lifterServoDown = 0.78;
     double lifterServoUp = 0.50;
 
+    double rotationX = 0;
+    double rotationY = 0;
+
+    int velocityShooting1 = 1700;
+    int velocityShooting2 = 1800;
+    int velocityShooting3 = 1900;
     public void drive()
     {
 
-        driveStickLeftX = gamepad1.left_stick_x * -1;
-        driveStickLeftY = gamepad1.left_stick_y;
-        driveStickRightX = gamepad1.right_stick_x * -1;
+        // Game controller left stick provide negative values for up and left and positive for down and right
+        // Multiply by  left stick up value by -1.0 to make is so up and right are positive and down and left are negative
+        driveStickLeftX = gamepad1.left_stick_x;
+        driveStickLeftY = gamepad1.left_stick_y * -1.0;
+
+        driveStickRightX = gamepad1.right_stick_x;
+
         driveTriggerLeft = gamepad1.left_trigger;
         driveTriggerRight = gamepad1.right_trigger;
         driveX = gamepad1.x;
 
-        currentRotation = bot.getTeleOpIMURotation();//odometry.getHeading(AngleUnit.RADIANS);
+        currentOrientationRad = odometry.getHeading(AngleUnit.RADIANS);
 
         if(driveX)
         {
@@ -145,6 +148,7 @@ public class leteleop extends LinearOpMode
             }
 
             //rotateMode = "slow";
+
             motorFrontLeft.setPower((driveStickRightX * rotationSpeed));
             motorFrontRight.setPower((driveStickRightX * rotationSpeed) * -1);
             motorBackLeft.setPower((driveStickRightX * rotationSpeed));
@@ -153,10 +157,10 @@ public class leteleop extends LinearOpMode
         else
         {
             driveStickRightX *= robotRotateSpeedMultiplier;
-            double rotationX = driveStickLeftX * Math.cos(-currentRotation) - driveStickLeftY * Math.sin(-currentRotation);
-            double rotationY = driveStickLeftX * Math.sin(-currentRotation) + driveStickLeftY * Math.cos(-currentRotation);
+            rotationX = driveStickLeftX * Math.cos(currentOrientationRad) - driveStickLeftY * Math.sin(currentOrientationRad);
+            rotationY = driveStickLeftX * Math.sin(currentOrientationRad) + driveStickLeftY * Math.cos(currentOrientationRad);
 
-            rotationX = rotationX * 1.1;
+            //rotationX = rotationX * 1.1;
 
             double denominator = Math.max(Math.abs(rotationY) + Math.abs(rotationX) + Math.abs(driveStickRightX), 1);
             motorFrontLeft.setPower(((rotationY + rotationX + driveStickRightX) / denominator) * motorspeed);
@@ -295,8 +299,8 @@ public class leteleop extends LinearOpMode
             servoLoaderAssist.setPower(-1.0);
             servoLoaderStartRight.setPower(-1.0);
             servoLoaderStartLeft.setPower(1.0);
-            motorShooterRight.setPower(shootingPower);
-            motorShooterLeft.setPower(shootingPower);
+            motorShooterRight.setVelocity(velocityShooting1);
+            motorShooterLeft.setVelocity(velocityShooting1);
         }
         else if(!auxY && auxYPressed)
         {
@@ -304,8 +308,8 @@ public class leteleop extends LinearOpMode
             servoLoaderAssist.setPower(0.0);
             servoLoaderStartRight.setPower(0.0);
             servoLoaderStartLeft.setPower(0.0);
-            motorShooterRight.setPower(0.0);
-            motorShooterLeft.setPower(0.0);
+            motorShooterRight.setVelocity(0);
+            motorShooterLeft.setVelocity(0);
             auxYPressed = false;
         }
     }
@@ -408,13 +412,13 @@ public class leteleop extends LinearOpMode
             else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 500)
             {
                 servoLifter.setPosition(lifterServoDown);
-                motorShooterLeft.setPower(shootingPower);
-                motorShooterRight.setPower(shootingPower);
+                motorShooterLeft.setVelocity(velocityShooting1);
+                motorShooterRight.setVelocity(velocityShooting1);
 
                 stepTimer.reset();
                 launchStep = "a1 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 700)
+            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 500)
             {
                 axonTargetPosition += 120;
                 if(axonTargetPosition < 0)
@@ -428,19 +432,23 @@ public class leteleop extends LinearOpMode
                 axonDirection = "cw";
                 magazineEngaged = true;
                 launchStep = "a2 - get next artifact";
+                stepTimer.reset();
             }
             else if (launchStep.equalsIgnoreCase("a2 - get next artifact") && !magazineEngaged)
             {
                 if(launchType.equalsIgnoreCase("current"))
                 {
-                    servoLoaderAssist.setPower(0.0);
-                    servoLoaderStartRight.setPower(0.0);
-                    servoLoaderStartLeft.setPower(0.0);
-                    motorShooterLeft.setPower(0.0);
-                    motorShooterRight.setPower(0.0);
+                    if(stepTimer.milliseconds() > 500)
+                    {
+                        servoLoaderAssist.setPower(0.0);
+                        servoLoaderStartRight.setPower(0.0);
+                        servoLoaderStartLeft.setPower(0.0);
+                        motorShooterLeft.setVelocity(0);
+                        motorShooterRight.setVelocity(0);
 
-                    launchEngaged = false;
-                    launchStep = "none";
+                        launchEngaged = false;
+                        launchStep = "none";
+                    }
                 }
                 else if(launchType.equalsIgnoreCase("all"))
                 {
@@ -462,13 +470,13 @@ public class leteleop extends LinearOpMode
             else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 500)
             {
                 servoLifter.setPosition(lifterServoDown);
-                motorShooterLeft.setPower(shootingPower);
-                motorShooterRight.setPower(shootingPower);
+                motorShooterLeft.setVelocity(velocityShooting2);
+                motorShooterRight.setVelocity(velocityShooting2);
 
                 stepTimer.reset();
                 launchStep = "a2 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 700)
+            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 500)
             {
                 axonTargetPosition += 120;
                 if(axonTargetPosition < 0)
@@ -502,153 +510,57 @@ public class leteleop extends LinearOpMode
             else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 500)
             {
                 servoLifter.setPosition(lifterServoDown);
-                motorShooterLeft.setPower(shootingPower);
-                motorShooterRight.setPower(shootingPower);
+                motorShooterLeft.setVelocity(velocityShooting3);
+                motorShooterRight.setVelocity(velocityShooting3);
 
                 stepTimer.reset();
                 launchStep = "a3 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - drop lifter") && stepTimer.milliseconds() > 1000)
+            else if (launchStep.equalsIgnoreCase("a3 - drop lifter") && stepTimer.milliseconds() > 500)
             {
-                axonTargetPosition += 120;
-                if(axonTargetPosition < 0)
-                {
-                    axonTargetPosition += 360;
-                }
-                else if(axonTargetPosition > 360)
-                {
-                    axonTargetPosition -= 360;
-                }
-                axonDirection = "cw";
-                magazineEngaged = true;
+                stepTimer.reset();
                 launchStep = "a3 - turn off launcher";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - turn off launcher") && !magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a3 - turn off launcher") && stepTimer.milliseconds() > 1000)
             {
                 servoLoaderAssist.setPower(0.0);
                 servoLoaderStartRight.setPower(0.0);
                 servoLoaderStartLeft.setPower(0.0);
-                motorShooterLeft.setPower(0.0);
-                motorShooterRight.setPower(0.0);
+                motorShooterLeft.setVelocity(0);
+                motorShooterRight.setVelocity(0);
 
                 launchEngaged = false;
                 launchStep = "none";
             }
         }
     }
-    public void loading()
-    {
-        auxX = gamepad2.x;
-        auxY = gamepad2.y;
-        auxDpadL = gamepad2.dpad_left;
-        auxDpadR = gamepad2.dpad_right;
-
-        if(auxX)
-        {
-            auxXPressed = true;
-        }
-
-        if(auxXPressed && !auxX && loaderState == 0)
-        {
-            servoLoaderAssist.setPower(-1.0);
-            servoLoaderStartRight.setPower(-1.0);
-            servoLoaderStartLeft.setPower(1.0);
-            auxXPressed = false;
-            loaderState = 1;
-        }
-        else if(auxXPressed && !auxX && loaderState == 1)
-        {
-            servoLoaderAssist.setPower(0.0);
-            servoLoaderStartRight.setPower(0.0);
-            servoLoaderStartLeft.setPower(0.0);
-            auxXPressed = false;
-            loaderState = 0;
-        }
-
-        if(auxDpadL)
-        {
-            servoLifter.setPosition(0.50);
-
-        }
-        if(auxDpadR)
-        {
-            testTimer.reset();
-            servoLifter.setPosition(0.78);
-            //if(testTimer.milliseconds() > 500)
-            //{
-            //    servoLifter.setPosition(0.5);
-            //}
-        }
-        /*
-
-        if(auxY)
-        {
-            auxYPressed = true;
-        }
-
-        else if(!auxY && auxYPressed && lifterServoState == 0)
-        {
-            servoLifter.setPosition(0.20);
-            auxYPressed = false;
-            lifterServoState = 1;
-        }
-
-        else if(!auxY && auxYPressed && lifterServoState == 1)
-        {
-            servoLifter.setPosition(0.0);
-            auxYPressed = false;
-            lifterServoState = 0;
-        }
-
-         */
-    }
-
-    public void shooter()
-    {
-        auxDpadD = gamepad2.dpad_down;//75%
-        //auxDpadU = gamepad1.dpad_up;//stop motors
-
-        if(auxDpadD)
-        {
-            auxDpadPressed = true;
-        }
-
-        if(!auxDpadD && auxDpadPressed && shooterState == 0)
-        {
-            motorShooterLeft.setPower(shootingPower);
-            motorShooterRight.setPower(shootingPower);
-            //motorShooterLeft.setVelocity(1999);
-            //motorShooterRight.setVelocity(1999);
-            auxDpadPressed = false;
-            shooterState = 1;
-        }
-        if(!auxDpadD && auxDpadPressed && shooterState == 1)
-        {
-            motorShooterLeft.setPower(0.0);
-            motorShooterRight.setPower(0.0);
-            //motorShooterLeft.setVelocity(1999);
-            //motorShooterRight.setVelocity(1999);
-            auxDpadPressed = false;
-            shooterState = 0;
-
-        }
-    }
     public void showTelemetry()
     {
-        telemetry.addData("CW max", powerRotateCWMax);
-        telemetry.addData("CW slow", powerRotateCWSlow);
+        telemetry.addData("Front Left Power", motorFrontLeft.getPower());
         telemetry.addData("CCW max", powerRotateCCWMax);
         telemetry.addData("CCW slow", powerRotateCCWSlow);
+
+        telemetry.addData("Rotation X", rotationX);
+        telemetry.addData("Rotation Y", rotationY);
 
         telemetry.addData("launch step", launchStep);
         telemetry.addData("odometry Y", bot.getY());
         telemetry.addData("odometry x", bot.getX());
-        telemetry.addData("odometry", odometry.getHeading(AngleUnit.RADIANS));
-        telemetry.addData("Left stick y", driveStickLeftY);
+        telemetry.addData("odometry", bot.getOrientationCurrent());
+        telemetry.addData("drive Left stick y", driveStickLeftY);
+        telemetry.addData("drive Left stick x", driveStickLeftX);
+        telemetry.addData("drive Right stick x", driveStickRightX);
+
+        telemetry.addData("aux stick right Y", auxStickRightY);
+        telemetry.addData("aux stick right X", auxStickRightX);
+        telemetry.addData("aux stick left X", auxStickLeftX);
+        telemetry.addData("aux stick left Y", auxStickLeftY);
+
+
         telemetry.addData("axon encoder", ((axonEncoder.getVoltage() / 3.3) * 360));
-        telemetry.addData("axon target", axonTargetPosition);
-        telemetry.addData("rotation direction", axonDirection);
-        telemetry.addData("axon direction", axon.getDirection());
+        //telemetry.addData("axon target", axonTargetPosition);
+        //telemetry.addData("rotation direction", axonDirection);
+        //telemetry.addData("axon direction", axon.getDirection());
         //telemetry.addData("test target", testAxon.getTargetRotation());
         //telemetry.addData("test angle", testAxon.log());
         //telemetry.addData("difference", ((axonEncoder.getVoltage() / 3.3) * 360) - testAxon.getCurrentAngle());
@@ -662,8 +574,8 @@ public class leteleop extends LinearOpMode
     }
     public void initialize2()
     {
-        imu = hardwareMap.get(IMU.class, "imu");
-        imu.initialize(parameters);
+        //imu = hardwareMap.get(IMU.class, "imu");
+        //imu.initialize(parameters);
 
         servoLoaderStartLeft = hardwareMap.get(CRServo.class, "StartLeft");
         servoLoaderStartRight = hardwareMap.get(CRServo.class, "StartRight");
@@ -672,10 +584,6 @@ public class leteleop extends LinearOpMode
 
         axon = hardwareMap.get(CRServo.class, "axon");
         axonEncoder = hardwareMap.get(AnalogInput.class, "axonEncoder");
-        testAxon = new RTPAxon(axon, axonEncoder);
-        testAxon.setMaxPower(0.1);
-        testAxon.setPidCoeffs(0.02, 0.0005, 0.0025);
-
         intakeMotor = hardwareMap.get(DcMotor.class, "Intake");
         //axon = hardwareMap.get(CRServo.class, "Magazine");
 
@@ -683,6 +591,11 @@ public class leteleop extends LinearOpMode
         motorFrontRight = hardwareMap.get(DcMotor.class, "FrontRight");
         motorBackLeft = hardwareMap.get(DcMotor.class, "BackLeft");
         motorBackRight = hardwareMap.get(DcMotor.class, "BackRight");
+
+        motorFrontLeft.setDirection(DcMotorSimple.Direction.FORWARD);
+        motorFrontRight.setDirection(DcMotorSimple.Direction.REVERSE);
+        motorBackLeft.setDirection(DcMotorSimple.Direction.FORWARD);
+        motorBackRight.setDirection(DcMotorSimple.Direction.REVERSE);
 
         motorShooterLeft = hardwareMap.get(DcMotorEx.class, "LeftShooter");
         motorShooterRight = hardwareMap.get(DcMotorEx.class, "RightShooter");
@@ -693,11 +606,6 @@ public class leteleop extends LinearOpMode
         motorShooterLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         motorShooterRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        motorFrontLeft.setDirection(DcMotorSimple.Direction.REVERSE);
-        motorFrontRight.setDirection(DcMotorSimple.Direction.FORWARD);
-        motorBackLeft.setDirection(DcMotorSimple.Direction.REVERSE);
-        motorBackRight.setDirection(DcMotorSimple.Direction.FORWARD);
-
         motorFrontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         motorFrontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         motorBackLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -707,16 +615,17 @@ public class leteleop extends LinearOpMode
         stepTimer = new ElapsedTime();
 
         odometry = hardwareMap.get(GoBildaPinpointDriver.class, "Odometry");
-        odometry.setOffsets(-85, -150); // don't know how to get these offsets yet
+        odometry.setOffsets(172, -74, DistanceUnit.MM); // don't know how to get these offsets yet
         odometry.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.FORWARD);
         odometry.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
+        //odometry.setYawScalar(-1.0);
         odometry.resetPosAndIMU();
 
         bot = new Robot(odometry);
         bot.setMotors(motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight);
         bot.setSpeed(0.4);
-        bot.setOffsetIMU(imu);
-        bot.getIMUOffset();
+        //bot.setOffsetIMU(imu);
+        //bot.getIMUOffset();
         bot.reset();
 
 
@@ -744,17 +653,33 @@ public class leteleop extends LinearOpMode
         servoLifter.setPosition(lifterServoDown);
 
         waitForStart();
-        bot.getIMUOffset();
+        //bot.getIMUOffset();
 
     }
     private void axonToPosition(double target, String direction)
     {
-        powerRotateCWMax = -0.11;
+        powerRotateCWMax = -0.13;
         powerRotateCWSlow = -0.05;
-        powerRotateCCWMax = -0.14;
+        powerRotateCCWMax = -0.16;
         powerRotateCCWSlow = -0.07;
 
         double currentPos = (axonEncoder.getVoltage() / 3.3) * 360;
+        if(Math.abs(axonPreviousPosition - currentPos) < .5)
+        {
+            axonFrozen++;
+        }
+        else
+        {
+            axonFrozen = 0;
+        }
+        if (axonFrozen >= 3)
+        {
+            powerRotateCWMax = powerRotateCWMax - (.01 * (axonFrozen - 2));
+            powerRotateCWSlow = powerRotateCWSlow - (.01 * (axonFrozen - 2));
+            powerRotateCCWMax = powerRotateCCWMax - (.01 * (axonFrozen - 2));
+            powerRotateCCWSlow = powerRotateCCWSlow - (.01 * (axonFrozen - 2));
+        }
+        axonPreviousPosition = currentPos;
         double distanceToTarget = currentPos - target;
 
         if(Math.abs(distanceToTarget) >= 30)
@@ -770,22 +695,22 @@ public class leteleop extends LinearOpMode
                 axon.setDirection(DcMotorSimple.Direction.REVERSE);
             }
         }
-        else if(distanceToTarget < -5)
+        else if(distanceToTarget < -8)
         {
             axon.setPower(powerRotateCWSlow);
             axon.setDirection(DcMotorSimple.Direction.FORWARD);
         }
-        else if (distanceToTarget > 5)
+        else if (distanceToTarget > 8)
         {
             axon.setPower(powerRotateCCWSlow);
             axon.setDirection(DcMotorSimple.Direction.REVERSE);
         }
-        else if(distanceToTarget < -2)
+        else if(distanceToTarget < -3)
         {
             axon.setPower(powerRotateCWSlow);
             axon.setDirection(DcMotorSimple.Direction.FORWARD);
         }
-        else if (distanceToTarget > 2)
+        else if (distanceToTarget > 3)
         {
             axon.setPower(powerRotateCCWSlow);
             axon.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -795,12 +720,12 @@ public class leteleop extends LinearOpMode
             axon.setPower(0.0);
             sleep(100);
             currentPos = (axonEncoder.getVoltage() / 3.3) * 360;
-            if(Math.abs(currentPos - target) < 2)
+            if(Math.abs(currentPos - target) < 3)
             {
                 magazineEngaged = false;
+                axonPreviousPosition = -1000;
             }
         }
-
     }
 
     @Override
@@ -812,7 +737,7 @@ public class leteleop extends LinearOpMode
         while(opModeIsActive())
         {
             fixShooter();
-            fixMagazine();
+            //fixMagazine();
             if(!launchEngaged)
             {
                 drive();
