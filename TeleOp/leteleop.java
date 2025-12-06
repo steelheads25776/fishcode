@@ -41,6 +41,7 @@ public class leteleop extends LinearOpMode
     CRServo servoLoaderStartLeft, servoLoaderStartRight, servoLoaderAssist;
     Servo servoLifter;
     AnalogInput axonEncoder;
+    CRServo internalLight;
     DcMotor intakeMotor;
 
     double driveStickLeftX;
@@ -101,6 +102,7 @@ public class leteleop extends LinearOpMode
     final int initialTarget = 43;
     ElapsedTime testTimer;
     ElapsedTime stepTimer;
+    ElapsedTime axonTimer;
     boolean magazineEngaged = false;
     double maxCorrections = 3;
     int test = 1000;
@@ -199,6 +201,7 @@ public class leteleop extends LinearOpMode
         {
             // reverse intake while B pressed
             intakeMotor.setPower(-0.45);//-0.37
+            //internalLight.setPower(.5);;
             auxBPressed = true;
             auxAPressed = false;
         }
@@ -296,9 +299,9 @@ public class leteleop extends LinearOpMode
             launchEngaged = false;
             launchStep = "none";
 
-            servoLoaderAssist.setPower(-1.0);
-            servoLoaderStartRight.setPower(-1.0);
-            servoLoaderStartLeft.setPower(1.0);
+            servoLoaderAssist.setPower(1.0);
+            servoLoaderStartRight.setPower(1.0);
+            servoLoaderStartLeft.setPower(-1.0);
             motorShooterRight.setVelocity(velocityShooting1);
             motorShooterLeft.setVelocity(velocityShooting1);
         }
@@ -401,15 +404,15 @@ public class leteleop extends LinearOpMode
             {
                 intakeMotor.setPower(0.0);
 
-                servoLoaderAssist.setPower(-1.0);
-                servoLoaderStartRight.setPower(-1.0);
-                servoLoaderStartLeft.setPower(1.0);
+                servoLoaderAssist.setPower(1.0);
+                servoLoaderStartRight.setPower(1.0);
+                servoLoaderStartLeft.setPower(-1.0);
                 servoLifter.setPosition(lifterServoUp);
 
                 stepTimer.reset();
                 launchStep = "a1 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 500)
+            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 300)
             {
                 servoLifter.setPosition(lifterServoDown);
                 motorShooterLeft.setVelocity(velocityShooting1);
@@ -418,7 +421,7 @@ public class leteleop extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "a1 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 500)
+            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 350)
             {
                 axonTargetPosition += 120;
                 if(axonTargetPosition < 0)
@@ -467,7 +470,7 @@ public class leteleop extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "a2 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 500)
+            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 300)
             {
                 servoLifter.setPosition(lifterServoDown);
                 motorShooterLeft.setVelocity(velocityShooting2);
@@ -476,7 +479,7 @@ public class leteleop extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "a2 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 500)
+            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 350)
             {
                 axonTargetPosition += 120;
                 if(axonTargetPosition < 0)
@@ -507,17 +510,12 @@ public class leteleop extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "a3 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 500)
+            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 350)
             {
                 servoLifter.setPosition(lifterServoDown);
                 motorShooterLeft.setVelocity(velocityShooting3);
                 motorShooterRight.setVelocity(velocityShooting3);
 
-                stepTimer.reset();
-                launchStep = "a3 - drop lifter";
-            }
-            else if (launchStep.equalsIgnoreCase("a3 - drop lifter") && stepTimer.milliseconds() > 500)
-            {
                 stepTimer.reset();
                 launchStep = "a3 - turn off launcher";
             }
@@ -581,6 +579,7 @@ public class leteleop extends LinearOpMode
         servoLoaderStartRight = hardwareMap.get(CRServo.class, "StartRight");
         servoLoaderAssist = hardwareMap.get(CRServo.class, "LoaderAssist");
         servoLifter = hardwareMap.get(Servo.class, "lifter");
+        internalLight = hardwareMap.get(CRServo.class, "InternalLight");
 
         axon = hardwareMap.get(CRServo.class, "axon");
         axonEncoder = hardwareMap.get(AnalogInput.class, "axonEncoder");
@@ -613,6 +612,7 @@ public class leteleop extends LinearOpMode
 
         testTimer = new ElapsedTime();
         stepTimer = new ElapsedTime();
+        axonTimer = new ElapsedTime();
 
         odometry = hardwareMap.get(GoBildaPinpointDriver.class, "Odometry");
         odometry.setOffsets(172, -74, DistanceUnit.MM); // don't know how to get these offsets yet
@@ -649,6 +649,7 @@ public class leteleop extends LinearOpMode
         });
         //axonTargetPosition = -80;
         //testAxon.setRtp(true);
+        internalLight.setPower(-1.0);//0.5
 
         servoLifter.setPosition(lifterServoDown);
 
@@ -734,8 +735,25 @@ public class leteleop extends LinearOpMode
         initialize2();
         magazineEngaged = true;
         axonDirection = "cw";
+
+        int axonState = 0;
         while(opModeIsActive())
         {
+            if(axonState < 20)
+            {
+                servoLoaderAssist.setPower(1.0);
+                servoLoaderStartRight.setPower(1.0);
+                servoLoaderStartLeft.setPower(-1.0);
+                axonState += 1;
+            }
+            else if(axonState == 20)
+            {
+                servoLoaderAssist.setPower(0.0);
+                servoLoaderStartRight.setPower(0.0);
+                servoLoaderStartLeft.setPower(0.0);
+                axonState = 200;
+            }
+
             fixShooter();
             //fixMagazine();
             if(!launchEngaged)
