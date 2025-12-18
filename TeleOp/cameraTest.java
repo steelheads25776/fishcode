@@ -1,10 +1,19 @@
 package org.firstinspires.ftc.teamcode.TeleOp;
 
+import android.util.Size;
+
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.CRServo;
 
+import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.vision.opencv.ColorBlobLocatorProcessor;
+import org.firstinspires.ftc.vision.opencv.ColorRange;
+import org.firstinspires.ftc.vision.opencv.ImageRegion;
+import org.firstinspires.ftc.vision.opencv.PredominantColorProcessor;
+import org.opencv.core.RotatedRect;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
@@ -31,6 +40,7 @@ public class cameraTest extends LinearOpMode
 
     GoBildaPinpointDriver odometry;
     OpenCvWebcam testCam = null;
+    CRServo internalLight;
     double distanceFromTag = 0;
 
     /*
@@ -48,14 +58,32 @@ public class cameraTest extends LinearOpMode
     int rightPurpleMax;
      */
 
-    int purpleMin;
-    int purpleMax;
-    int greenMin;
-    int greenMax;
+    int purpleMin = 1;
+    int purpleMax = 100;
+    int greenMin = 1;
+    int greenMax = 100;
+    PredominantColorProcessor chamberMiddleColor;
+    PredominantColorProcessor.Result result;
     String chamberLeft, chamberMiddle, chamberRight = "none";
+
+    int left, middle, right = 0;
     public void telemetryy()
     {
         telemetry.addData("Distance from tag", distanceFromTag);
+
+
+
+        telemetry.addData("Left avg", left);
+        telemetry.addData("Middle avg", middle);
+        telemetry.addData("Right avg", right);
+
+        telemetry.addData("Left Chamber", chamberLeft);
+        telemetry.addData("Middle Chamber", chamberMiddle);
+        telemetry.addData("Right Chamber", chamberRight);
+
+        telemetry.addData("result", result.closestSwatch);
+
+
         if(limelightResult.isValid() && limelightResult != null)
         {
             telemetry.addData("MT2 target X", limelightResult.getTx());
@@ -75,7 +103,7 @@ public class cameraTest extends LinearOpMode
         if(limelightResult.isValid() && limelightResult != null)
         {
             botPose = limelightResult.getBotpose_MT2();
-            distanceFromTag = bot.getDistanceFromTag(limelightResult.getTa());
+            distanceFromTag = limelightResult.getTa();//bot.getDistanceFromTag(limelightResult.getTa());
         }
     }
     public void ininit()
@@ -95,11 +123,15 @@ public class cameraTest extends LinearOpMode
         bot.reset();
 
 
+        internalLight = hardwareMap.get(CRServo.class, "InternalLight");
+        internalLight.setPower(1.0);
         WebcamName webcamName = hardwareMap.get(WebcamName.class, "Internal Cam");
         int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", hardwareMap.appContext.getPackageName());//not sure what this does or how it works...
 
-        testCam = OpenCvCameraFactory.getInstance().createWebcam(webcamName, cameraMonitorViewId);
-        testCam.setPipeline(new magRecognition());
+        //testCam = OpenCvCameraFactory.getInstance().createWebcam(webcamName, cameraMonitorViewId);
+        //testCam.setPipeline(new magRecognition());
+
+        /*
         testCam.openCameraDeviceAsync(new OpenCvCamera.AsyncCameraOpenListener()
         {
             @Override
@@ -114,16 +146,36 @@ public class cameraTest extends LinearOpMode
                 //do nothing (yet?)
             }
         });
+         */
+
+        chamberMiddleColor = new PredominantColorProcessor.Builder()
+                .setRoi(ImageRegion.asImageCoordinates(450, 1, 750,301))
+                .setSwatches(
+                        PredominantColorProcessor.Swatch.ARTIFACT_GREEN,
+                        PredominantColorProcessor.Swatch.ARTIFACT_PURPLE,
+                        PredominantColorProcessor.Swatch.BLACK,
+                        PredominantColorProcessor.Swatch.WHITE)
+                .build();
+
+        VisionPortal portal = new VisionPortal.Builder()
+                .addProcessor(chamberMiddleColor)
+                .setCameraResolution(new Size(1280, 720))
+                .setCamera(hardwareMap.get(WebcamName.class, "Internal Cam"))
+                .build();
+
 
         waitForStart();
         limelight.start();
     }
+    /*
     class  magRecognition extends OpenCvPipeline
     {
         Mat YCbCr = new Mat();
         Mat outPut = new Mat();
 
-        Scalar color = new Scalar(255.0, 0.0, 0.0);
+        Scalar color = new Scalar(0.0, 255.0, 0.0);
+        Scalar colorLow = new Scalar(0.0, 0.0, 0.0);
+        Scalar colorMax = new Scalar(255.0, 255.0, 255.0);
 
         public Mat processFrame(Mat input)
         {
@@ -149,7 +201,6 @@ public class cameraTest extends LinearOpMode
             Core.extractChannel(middleCrop, middleCrop, 2);
             Core.extractChannel(rightCrop, rightCrop, 2);
 
-
             Scalar leftavg = Core.mean(leftCrop);
             Scalar midavg = Core.mean(middleCrop);
             Scalar rightavg = Core.mean(rightCrop);
@@ -157,6 +208,10 @@ public class cameraTest extends LinearOpMode
             int leftValue = (int) leftavg.val[1];
             int midValue = (int) midavg.val[1];
             int rightValue = (int) rightavg.val[1];
+
+            left = leftValue;
+            middle = midValue;
+            right = rightValue;
 
             if(leftValue >= greenMin && leftValue <= greenMax)
             {
@@ -204,16 +259,19 @@ public class cameraTest extends LinearOpMode
                 propPosition = "Left";
             }
 
-             */
+
             return(outPut);
         }
     }
+    */
 
     public void runOpMode()
     {
         ininit();
         while(opModeIsActive())
         {
+            result = chamberMiddleColor.getAnalysis();
+            //test();
             limelightTest();
             telemetryy();
         }
