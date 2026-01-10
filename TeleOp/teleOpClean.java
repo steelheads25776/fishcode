@@ -1,5 +1,9 @@
 package org.firstinspires.ftc.teamcode.TeleOp;
 
+import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.hardwareMap;
+
+import android.util.Size;
+
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -14,10 +18,10 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
 import org.firstinspires.ftc.teamcode.Robot;
 import org.firstinspires.ftc.teamcode.ShooterBot;
+import org.firstinspires.ftc.vision.VisionPortal;
 import org.openftc.easyopencv.*;
 
 
@@ -26,26 +30,28 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 @TeleOp
 public class teleOpClean extends LinearOpMode
 {
-    Limelight3A limelight;
-    LLResult limelightResult;
-    Pose3D botPose;
     double shootingPower = 0.62;//0.75
     double powerRotateCWMax = -0.11;
     double powerRotateCWSlow = -0.05;
-    double powerRotateCCWMax = -0.14;
+    double powerRotateCCWMax = -0.14;//-0.14
     double powerRotateCCWSlow = -0.07;
+    Limelight3A ll;
     GoBildaPinpointDriver odometry;
     Robot bot;
     ShooterBot robot;
     OpenCvWebcam testCam = null;
     DcMotor motorFrontLeft, motorFrontRight, motorBackLeft, motorBackRight;
     DcMotorEx motorShooterRight, motorShooterLeft;
+    //IMU imu;
+    //IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(RevHubOrientationOnRobot.LogoFacingDirection.RIGHT, RevHubOrientationOnRobot.UsbFacingDirection.UP));
+
+
 
     CRServo axon;
     CRServo servoLoaderStartLeft, servoLoaderStartRight, servoLoaderAssist;
     Servo servoLifter;
     AnalogInput axonEncoder;
-    CRServo internalLight;
+    Servo internalLight;
     DcMotor intakeMotor;
 
     double driveStickLeftX;
@@ -53,23 +59,25 @@ public class teleOpClean extends LinearOpMode
     double driveStickRightX;
 
     boolean driveB;
+    boolean driveBPressed = false;
     boolean driveA;//intake
+    boolean driveAPressed = false;
     boolean driveY;
     boolean driveX;//reset orientation
     boolean driveBumperRight;
     boolean driveBumperLeft;
     double currentOrientation;
     double currentOrientationRad;
-    //double axonPreviousPosition = -1000;
-    //int axonFrozen = 0;
+    double axonPreviousPosition = -1000;
+    int axonFrozen = 0;
     double driveTriggerLeft;//high speed on drive
     double driveTriggerRight;//slow speed on drive
     boolean driveDpadL;
     boolean driveDpadU;
     boolean driveDpadD;
     boolean driveDpadR;
-    //double axonMaxSpeed = 0.20;
-    //String rotateMode = "slow";
+    double axonMaxSpeed = 0.20;
+    String rotateMode = "slow";
 
     double motorspeedhigh = 1.0;
     double motorspeed = 1.0;
@@ -77,7 +85,7 @@ public class teleOpClean extends LinearOpMode
     double motorspeedslower = 0.5;
     double slowRotateSpeed = 0.55;
     double robotRotateSpeedMultiplier = 2.0;
-    double axonTargetPosition = 43;
+    double axonTargetPosition = 42;//43
     String axonDirection = "cw";
     String launchType = "";
     String launchStep = "None";
@@ -88,7 +96,7 @@ public class teleOpClean extends LinearOpMode
     boolean auxBumperLeft, auxBumperRight;
     double auxStickLeftX, auxStickLeftY, auxStickRightX, auxStickRightY;
     double auxTriggerRight, auxTriggerLeft;
-    boolean auxTriggerRightPressed, auxTriggerLeftPressed;
+    boolean auxTriggerRightPressed, auxTriggerLeftPressed = false;
     boolean auxXPressed;
     boolean auxYPressed;
     boolean auxDpadPressed;
@@ -117,12 +125,21 @@ public class teleOpClean extends LinearOpMode
     double rotationX = 0;
     double rotationY = 0;
 
-    double distanceFromTag;
-    int velocityShooting1 = 1700;
-    int velocityShooting2 = 1700;
-    int velocityShooting3 = 1700;
+    int velocityShooting1 = 1600;
+    int velocityShooting2 = 1600;
+    int velocityShooting3 = 1600;
+
+    boolean shootingLong;
+    int velocityLongShooting1 = 1800;
+    int velocityLongShooting2 = 1800;
+    int velocityLongShooting3 = 1800;
 
     String[] chambers = new String[3];
+    String launchColor = "none";
+
+    LLResult llresult;
+    double llX = 0;
+    boolean trackingTag = false;
     public void drive()
     {
 
@@ -131,13 +148,16 @@ public class teleOpClean extends LinearOpMode
         driveStickLeftX = gamepad1.left_stick_x;
         driveStickLeftY = gamepad1.left_stick_y * -1.0;
 
-        driveStickRightX = gamepad1.right_stick_x;
+        if(!trackingTag)
+        {
+            driveStickRightX = gamepad1.right_stick_x;
+        }
 
         driveTriggerLeft = gamepad1.left_trigger;
         driveTriggerRight = gamepad1.right_trigger;
         driveX = gamepad1.x;
 
-        currentOrientationRad = bot.getTeleOpIMURotation();
+        currentOrientationRad = odometry.getHeading(AngleUnit.RADIANS);
 
         if(driveX)
         {
@@ -294,6 +314,69 @@ public class teleOpClean extends LinearOpMode
 
     }
 
+    public void trackAprilTag()
+    {
+        driveA = gamepad1.a;
+        driveB = gamepad1.b;
+        robot.limelight.updateRobotOrientation(bot.getOrientationCurrent());
+        llresult = robot.limelight.getLatestResult();
+
+        if(llresult.isValid() && llresult != null)
+        {
+            llX = llresult.getTx();
+        }
+
+        if(driveA)
+        {
+            driveAPressed = true;
+        }
+        if(!driveA && driveAPressed)
+        {
+            trackingTag = true;
+            driveAPressed = false;
+        }
+
+        if(driveB)
+        {
+            driveBPressed = true;
+        }
+        if(!driveB && driveBPressed)
+        {
+            trackingTag = false;
+            driveBPressed = false;
+        }
+
+        if(trackingTag)
+        {
+            if(llX > 0.1)
+            {
+                if((0.1 + (llX * 0.10)) > 1.0)
+                {
+                    driveStickRightX = -1.0;
+                }
+                else if((0.1 + (llX * 0.10)) <= 1.0)
+                {
+                    driveStickRightX = (0.1 + (llX * 0.10)) * -1;
+                }
+            }
+            else if(llX < -0.1)
+            {
+                if((0.1 + (llX * 0.10)) < -1.0)
+                {
+                    driveStickRightX = 1.0;
+                }
+                else if((0.1 + (llX * 0.10)) >= -1.0)
+                {
+                    driveStickRightX = (0.1 + (llX * 0.10)) * -1;
+                }
+            }
+            else
+            {
+                driveStickRightX = 0;
+            }
+        }
+    }
+
     public void fixShooter()
     {
         auxY = gamepad2.y;
@@ -323,11 +406,134 @@ public class teleOpClean extends LinearOpMode
             auxYPressed = false;
         }
     }
+
+    public void shootSpecific()
+    {
+        auxDpadL = gamepad2.dpad_left;//shoot purple
+        auxDpadR = gamepad2.dpad_right;//shoot green
+
+        if(!launchEngaged)
+        {
+            if(auxDpadL)
+            {
+                auxDpadLPressed = true;
+            }
+            if(!auxDpadL && auxDpadLPressed)
+            {
+                launchEngaged = true;
+                //launchType = "purple";
+                launchColor = "artifact_purple";
+                auxDpadLPressed = false;
+            }
+
+            if(auxDpadR)
+            {
+                auxDpadRPressed = true;
+            }
+            if(!auxDpadR && auxDpadRPressed)
+            {
+                launchEngaged = true;
+                //launchType = "green";
+                launchColor = "artifact_green";
+                auxDpadRPressed = false;
+            }
+        }
+
+        if(launchEngaged)
+        {
+            if(launchStep.equalsIgnoreCase("none"))
+            {
+                robot.magazineEngaged = true;
+                launchStep = "rotate mag to color";
+            }
+            else if(launchStep.equalsIgnoreCase("rotate mag to color") && !robot.magazineEngaged)
+            {
+                if(chambers[1].equalsIgnoreCase(launchColor))
+                {
+                    launchStep = "s - initial position";
+                }
+                else if(chambers[2].equalsIgnoreCase(launchColor))
+                {
+                    axonTargetPosition -= 120;
+                    if(axonTargetPosition < 0)
+                    {
+                        axonTargetPosition += 360;
+                    }
+                    else if(axonTargetPosition > 360)
+                    {
+                        axonTargetPosition -= 360;
+                    }
+                    axonDirection = "ccw";
+                    robot.magazineEngaged = true;
+                    launchStep = "s - initial position";
+                }
+                else if(chambers[0].equalsIgnoreCase(launchColor))
+                {
+                    axonTargetPosition += 120;
+                    if(axonTargetPosition < 0)
+                    {
+                        axonTargetPosition += 360;
+                    }
+                    else if(axonTargetPosition > 360)
+                    {
+                        axonTargetPosition -= 360;
+                    }
+                    axonDirection = "cw";
+                    robot.magazineEngaged = true;
+                    launchStep = "s - initial position";
+                }
+            }
+            else if (launchStep.equalsIgnoreCase("s - initial position") && !robot.magazineEngaged)
+            {
+                intakeMotor.setPower(0.0);
+
+                servoLoaderAssist.setPower(1.0);
+                servoLoaderStartRight.setPower(1.0);
+                servoLoaderStartLeft.setPower(-1.0);
+                servoLifter.setPosition(lifterServoUp);
+
+                stepTimer.reset();
+                launchStep = "s - lifter engaged";
+            }
+            else if (launchStep.equalsIgnoreCase("s - lifter engaged") && stepTimer.milliseconds() > 250)
+            {
+                servoLifter.setPosition(lifterServoDown);
+                if(!shootingLong)
+                {
+                    motorShooterLeft.setVelocity(velocityShooting1);
+                    motorShooterRight.setVelocity(velocityShooting1);
+                }
+                if(shootingLong)
+                {
+                    motorShooterLeft.setVelocity(velocityLongShooting1);
+                    motorShooterRight.setVelocity(velocityLongShooting1);
+                }
+
+                stepTimer.reset();
+                launchStep = "s - stop";
+            }
+
+            else if (launchStep.equalsIgnoreCase("s - stop") && !robot.magazineEngaged)
+            {
+                if (stepTimer.milliseconds() > 1000)
+                {
+                    servoLoaderAssist.setPower(0.0);
+                    servoLoaderStartRight.setPower(0.0);
+                    servoLoaderStartLeft.setPower(0.0);
+                    motorShooterLeft.setVelocity(0);
+                    motorShooterRight.setVelocity(0);
+
+                    launchEngaged = false;
+                    launchStep = "none";
+                }
+            }
+        }
+    }
     public void launch()
     {
         auxTriggerLeft = gamepad2.left_trigger;  // launch current
         auxTriggerRight = gamepad2.right_trigger;  // launch all
-
+        auxX = gamepad2.x;
         if(!launchEngaged)
         {
             if (auxTriggerRight >= 0.3)
@@ -339,11 +545,21 @@ public class teleOpClean extends LinearOpMode
                 auxTriggerLeftPressed = true;
             }
 
+            if(auxX)
+            {
+                shootingLong = true;
+            }
+            if(!auxX)
+            {
+                shootingLong = false;
+            }
+
             if (auxTriggerLeft < 0.3 && auxTriggerLeftPressed)
             {
                 launchEngaged = true;
                 launchType = "current";
                 auxTriggerLeftPressed = false;
+                //shootingLong = false;
             }
 
             if (auxTriggerRight < 0.3 && auxTriggerRightPressed)
@@ -351,6 +567,7 @@ public class teleOpClean extends LinearOpMode
                 launchEngaged = true;
                 launchType = "all";
                 auxTriggerRightPressed = false;
+                //shootingLong = false;
             }
         }
 
@@ -373,11 +590,19 @@ public class teleOpClean extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "a1 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 300)
+            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 250)
             {
                 servoLifter.setPosition(lifterServoDown);
-                motorShooterLeft.setVelocity(velocityShooting1);
-                motorShooterRight.setVelocity(velocityShooting1);
+                if(!shootingLong)
+                {
+                    motorShooterLeft.setVelocity(velocityShooting1);
+                    motorShooterRight.setVelocity(velocityShooting1);
+                }
+                if(shootingLong)
+                {
+                    motorShooterLeft.setVelocity(velocityLongShooting1);
+                    motorShooterRight.setVelocity(velocityLongShooting1);
+                }
 
                 stepTimer.reset();
                 launchStep = "a1 - drop lifter";
@@ -431,16 +656,26 @@ public class teleOpClean extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "a2 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 300)
+            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 250)
             {
                 servoLifter.setPosition(lifterServoDown);
-                motorShooterLeft.setVelocity(velocityShooting2);
-                motorShooterRight.setVelocity(velocityShooting2);
+                if(!shootingLong)
+                {
+                    motorShooterLeft.setVelocity(velocityShooting2);
+                    motorShooterRight.setVelocity(velocityShooting2);
+                }
+                if(shootingLong)
+                {
+                    motorShooterLeft.setVelocity(velocityLongShooting2);
+                    motorShooterRight.setVelocity(velocityLongShooting2);
+                }
+                //motorShooterLeft.setVelocity(velocityShooting2);
+                //motorShooterRight.setVelocity(velocityShooting2);
 
                 stepTimer.reset();
                 launchStep = "a2 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 350)
+            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 250)
             {
                 axonTargetPosition += 120;
                 if(axonTargetPosition < 0)
@@ -471,11 +706,21 @@ public class teleOpClean extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "a3 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 350)
+            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 250)
             {
                 servoLifter.setPosition(lifterServoDown);
-                motorShooterLeft.setVelocity(velocityShooting3);
-                motorShooterRight.setVelocity(velocityShooting3);
+                if(!shootingLong)
+                {
+                    motorShooterLeft.setVelocity(velocityShooting3);
+                    motorShooterRight.setVelocity(velocityShooting3);
+                }
+                if(shootingLong)
+                {
+                    motorShooterLeft.setVelocity(velocityLongShooting3);
+                    motorShooterRight.setVelocity(velocityLongShooting3);
+                }
+                //motorShooterLeft.setVelocity(velocityShooting3);
+                //motorShooterRight.setVelocity(velocityShooting3);
 
                 stepTimer.reset();
                 launchStep = "a3 - turn off launcher";
@@ -493,22 +738,38 @@ public class teleOpClean extends LinearOpMode
             }
         }
     }
-
-    public void limeLight()
-    {
-        limelight.updateRobotOrientation(bot.getOrientationCurrent());      //In all of the examples I found this uses the internal IMU.
-        //If I remember right the internal IMU uses values -180 to +180, and our getOrientation code uses 0-360
-        //This might cause problems with orientation, but should be a simple fix.
-
-        limelightResult = limelight.getLatestResult();
-        if(limelightResult.isValid() && limelightResult != null)
-        {
-            botPose = limelightResult.getBotpose_MT2();
-            distanceFromTag = bot.getDistanceFromTag(limelightResult.getTa());
-        }
-    }
     public void showTelemetry()
     {
+        telemetry.addData("llx", llX);
+
+        telemetry.addData("chamber control", chambers[0]);
+        telemetry.addData("chamber barrel", chambers[1]);
+        telemetry.addData("chamber expansion", chambers[2]);
+
+        telemetry.addData("control hue", robot.chamberControlColor.getAnalysis().HSV[0]);
+        telemetry.addData("barrel hue", robot.chamberBarrelColor.getAnalysis().HSV[0]);
+        telemetry.addData("expansion hue", robot.chamberExpansionColor.getAnalysis().HSV[0]);
+
+        telemetry.addData("control value", robot.chamberControlColor.getAnalysis().HSV[2]);
+        telemetry.addData("barrel value", robot.chamberBarrelColor.getAnalysis().HSV[2]);
+        telemetry.addData("expansion value", robot.chamberExpansionColor.getAnalysis().HSV[2]);
+        /*
+        telemetry.addData("control hub hue", robot.chamberControlColor.getAnalysis().HSV[0]);
+        telemetry.addData("barrel hue", robot.chamberBarrelColor.getAnalysis().HSV[0]);
+        telemetry.addData("expansion hub hue", robot.chamberExpansionColor.getAnalysis().HSV[0]);
+
+        telemetry.addData("control hub saturation", robot.chamberControlColor.getAnalysis().HSV[1]);
+        telemetry.addData("barrel saturation", robot.chamberBarrelColor.getAnalysis().HSV[1]);
+        telemetry.addData("expansion hub saturation", robot.chamberExpansionColor.getAnalysis().HSV[1]);
+
+        telemetry.addData("control hub total", robot.chamberControlColor.getAnalysis().HSV[2]);
+        telemetry.addData("barrel total", robot.chamberBarrelColor.getAnalysis().HSV[2]);
+        telemetry.addData("expansion hub total", robot.chamberExpansionColor.getAnalysis().HSV[2]);
+
+         */
+
+
+
         telemetry.addData("Front Left Power", motorFrontLeft.getPower());
         telemetry.addData("CCW max", powerRotateCCWMax);
         telemetry.addData("CCW slow", powerRotateCCWSlow);
@@ -520,6 +781,7 @@ public class teleOpClean extends LinearOpMode
         telemetry.addData("odometry Y", bot.getY());
         telemetry.addData("odometry x", bot.getX());
         telemetry.addData("odometry", bot.getOrientationCurrent());
+        telemetry.addData("radians", odometry.getHeading(AngleUnit.RADIANS));
         telemetry.addData("drive Left stick y", driveStickLeftY);
         telemetry.addData("drive Left stick x", driveStickLeftX);
         telemetry.addData("drive Right stick x", driveStickRightX);
@@ -531,25 +793,18 @@ public class teleOpClean extends LinearOpMode
 
 
         telemetry.addData("axon encoder", ((axonEncoder.getVoltage() / 3.3) * 360));
+        //telemetry.addData("axon target", axonTargetPosition);
+        //telemetry.addData("rotation direction", axonDirection);
+        //telemetry.addData("axon direction", axon.getDirection());
+        //telemetry.addData("test target", testAxon.getTargetRotation());
+        //telemetry.addData("test angle", testAxon.log());
+        //telemetry.addData("difference", ((axonEncoder.getVoltage() / 3.3) * 360) - testAxon.getCurrentAngle());
         telemetry.addData("engaged", robot.magazineEngaged);
         telemetry.addData("intake power", intakeMotor.getPower());
         telemetry.addData("magazine power", axon.getPower());
         telemetry.addData("motor velocity left", motorShooterLeft.getVelocity());
         telemetry.addData("motor velocity right", motorShooterRight.getVelocity());
-        telemetry.addData("Distance from tag", distanceFromTag);
 
-        telemetry.addData("Chamber Left", chambers[0]);
-        telemetry.addData("Chamber Middle", chambers[1]);
-        telemetry.addData("Chamber Right", chambers[2]);
-        
-        if(limelightResult != null && limelightResult.isValid())
-        {
-            telemetry.addData("MT2 target X", limelightResult.getTx());
-            telemetry.addData("MT2 target Y", limelightResult.getTy());
-            telemetry.addData("MT2 target area", limelightResult.getTa());
-            telemetry.addData("MT2 bot pose", botPose.toString());
-
-        }
         telemetry.update();
     }
     public void initialize2()
@@ -557,12 +812,11 @@ public class teleOpClean extends LinearOpMode
         //imu = hardwareMap.get(IMU.class, "imu");
         //imu.initialize(parameters);
 
-        distanceFromTag = 0;
         servoLoaderStartLeft = hardwareMap.get(CRServo.class, "StartLeft");
         servoLoaderStartRight = hardwareMap.get(CRServo.class, "StartRight");
         servoLoaderAssist = hardwareMap.get(CRServo.class, "LoaderAssist");
         servoLifter = hardwareMap.get(Servo.class, "lifter");
-        internalLight = hardwareMap.get(CRServo.class, "InternalLight");
+        internalLight = hardwareMap.get(Servo.class, "InternalLight");
 
         axon = hardwareMap.get(CRServo.class, "axon");
         axonEncoder = hardwareMap.get(AnalogInput.class, "axonEncoder");
@@ -598,10 +852,10 @@ public class teleOpClean extends LinearOpMode
         axonTimer = new ElapsedTime();
 
         odometry = hardwareMap.get(GoBildaPinpointDriver.class, "Odometry");
-        odometry.setOffsets(172, -74, DistanceUnit.MM); // don't know how to get these offsets yet
+        odometry.setOffsets(170, 75, DistanceUnit.MM); // don't know how to get these offsets yet
         odometry.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.FORWARD);
         odometry.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
-        //odometry.setYawScalar(-1.0);
+        odometry.setYawScalar(-1.0);
         odometry.resetPosAndIMU();
 
         bot = new Robot(odometry);
@@ -611,34 +865,16 @@ public class teleOpClean extends LinearOpMode
         //bot.getIMUOffset();
         bot.reset();
 
-        limelight = hardwareMap.get(Limelight3A.class, "limelight");
-        limelight.pipelineSwitch(0);
 
-        WebcamName webcamName = hardwareMap.get(WebcamName.class, "Internal Cam");
-        int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", hardwareMap.appContext.getPackageName());//not sure what this does or how it works...
-        testCam = OpenCvCameraFactory.getInstance().createWebcam(webcamName, cameraMonitorViewId);
+        //WebcamName webcamName = hardwareMap.get(WebcamName.class, "Internal Cam");
+        //int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", hardwareMap.appContext.getPackageName());//not sure what this does or how it works...
+        //testCam = OpenCvCameraFactory.getInstance().createWebcam(webcamName, cameraMonitorViewId);
         //testCam.setPipeline(new searchColor());
-        testCam.openCameraDeviceAsync(new OpenCvCamera.AsyncCameraOpenListener()
-        {
-            @Override
-            public void onOpened()
-            {
-                testCam.startStreaming(1280, 720, OpenCvCameraRotation.UPRIGHT);
-            }
-
-            @Override
-            public void onError(int errorCode)
-            {
-                //do nothing (yet?)
-            }
-        });
         //axonTargetPosition = -80;
         //testAxon.setRtp(true);
-        internalLight.setPower(-1.0);//0.5
+        internalLight.setPosition(0.4);//0.5
 
         servoLifter.setPosition(lifterServoDown);
-
-
 
 
         robot = new ShooterBot();
@@ -646,14 +882,25 @@ public class teleOpClean extends LinearOpMode
         robot.setMagazine(axon, axonEncoder);
         robot.setLoadServos(servoLifter, servoLoaderStartLeft, servoLoaderStartRight, servoLoaderAssist);
         robot.startCameraSensors();
-        for(int i = 0; i <= chambers.length; i++)
-        {
-            chambers[i] = "NONE";
-        }
-        waitForStart();
-        //bot.getIMUOffset();
-        limelight.start();
 
+        VisionPortal portal = new VisionPortal.Builder()
+                .addProcessors(robot.chamberControlColor, robot.chamberBarrelColor, robot.chamberExpansionColor)
+                .setCameraResolution(new Size(1280, 720))
+                .setCamera(hardwareMap.get(WebcamName.class, "Internal Cam"))
+                .build();
+
+        for(int i = 0; i < chambers.length; i++)
+        {
+            chambers[i] = "?";
+        }
+
+        //robot.initLimeLight();
+        ll = hardwareMap.get(Limelight3A.class, "limelight");
+        robot.setLimelight(ll);
+        robot.changePipeline(0);
+        waitForStart();
+        robot.startLimelight();
+        //bot.getIMUOffset();
     }
 
     @Override
@@ -666,14 +913,14 @@ public class teleOpClean extends LinearOpMode
         int axonState = 0;
         while(opModeIsActive())
         {
-            if(axonState < 20)
+            if(axonState < 10)
             {
                 servoLoaderAssist.setPower(1.0);
                 servoLoaderStartRight.setPower(1.0);
                 servoLoaderStartLeft.setPower(-1.0);
                 axonState += 1;
             }
-            else if(axonState == 20)
+            else if(axonState == 10)
             {
                 servoLoaderAssist.setPower(0.0);
                 servoLoaderStartRight.setPower(0.0);
@@ -681,16 +928,21 @@ public class teleOpClean extends LinearOpMode
                 axonState = 200;
             }
 
-            limeLight();
-            fixShooter();
-            chambers = robot.getChambers();
+            //fixShooter();
+            //fixMagazine();
             if(!launchEngaged)
             {
-                drive();
+                //drive();
                 magazine();
-                intake();
+                //intake();
+                //shooter();
+                //loading();
             }
+            drive();
+            trackAprilTag();
+            intake();
             launch();
+            shootSpecific();
             showTelemetry();
 
             if(robot.magazineEngaged)
@@ -698,6 +950,9 @@ public class teleOpClean extends LinearOpMode
                 robot.axonToPosition(axonTargetPosition, axonDirection);
             }
 
+            chambers = robot.getChambers();
+
+            //testAxon.update();
             odometry.update();
         }
     }
