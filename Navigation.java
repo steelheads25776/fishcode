@@ -38,7 +38,6 @@ public class Navigation
     {
         odometry = pod;
         odometry.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
-        odometry.setYawScalar(-1.0);
     }
 
     public Navigation()
@@ -98,19 +97,19 @@ public class Navigation
         double currentOrientationRad = getOrientionRad();
         double currentX = getX();
         double currentY = getY();
-        double rotationErrorTolerance = 2.0;
+        double rotationErrorTolerance = 2.5;
         double distanceToRotationSlow = 40; // slow rotational speed on linear function if below this value
         double distanceToNavSlow = 200;
-        double navErrorTolerance = 20;
+        double navErrorTolerance = 25;//20
 
         double powerMaxRotate = 0.75;
         double powerMinRotate = 0.2;
-        double powerMaxNav = 0.8;
+        double powerMaxNav = 1.0; //0.8, 1.0
         if(navSpeedOverride > 0)
         {
             powerMaxNav = navSpeedOverride;
         }
-        double powerMinNav = 0.2;
+        double powerMinNav = 0.25;
 
 //        double powerMaxRotate = 0.0;
 //        double powerMinRotate = 0.0;
