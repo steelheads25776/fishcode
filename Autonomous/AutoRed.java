@@ -78,7 +78,7 @@ public class AutoRed extends OpMode
     int tag = -1;
     int test2 = -1;
     String launchColor = "none";
-    int velocityShooting = 1555;//1500
+    int velocityShooting = 1375;//1500
     Servo internalLight;
     boolean finished = false;
     boolean buttonA = false;
@@ -105,7 +105,7 @@ public class AutoRed extends OpMode
             }
             else if (launchStep.equalsIgnoreCase("a1 - initial position") && !robot.magazineEngaged)
             {
-                intakeMotor.setPower(0.0);
+                intakeMotor.setPower(1.0);
 
                 servoLoaderAssist.setPower(-1.0);
                 servoLoaderStartRight.setPower(-1.0);
@@ -229,12 +229,6 @@ public class AutoRed extends OpMode
             }
             else if (launchStep.equalsIgnoreCase("a3 - turn off launcher") && stepTimer.milliseconds() > 1000)
             {
-                servoLoaderAssist.setPower(0.0);
-                servoLoaderStartRight.setPower(0.0);
-                servoLoaderStartLeft.setPower(0.0);
-                motorShooterLeft.setPower(0.0);
-                motorShooterRight.setPower(0.0);
-
                 launchEngaged = false;
                 launchStep = "none";
             }
@@ -256,20 +250,23 @@ public class AutoRed extends OpMode
             {
                 motifOrderReturn = robot.axonToOrder(axonTargetPosition);
                 axonTargetPosition = motifOrderReturn[0];
-                if(motifOrderReturn[1] >= 1.0)
-                {
-                    axonDirection = "cw";
-                }
-                else if(motifOrderReturn[1] <= -1.0)
+                axonDirection = "cw";
+                if(motifOrderReturn[1] == -1.0)
                 {
                     axonDirection = "ccw";
+                }
+                else if (motifOrderReturn[1] == -2.0)
+                {
+                    // At least one magazine spot is empty or didn't register
+                    // Don't rotate and just shoot
+                    axonTargetPosition = ((axonTargetPosition + 360) - 240) % 360;  // Sets value back to starting value so doesn't rotate
                 }
                 robot.magazineEngaged = true;
                 launchStep = "a1 - initial position";
             }
             else if (launchStep.equalsIgnoreCase("a1 - initial position") && !robot.magazineEngaged)
             {
-                intakeMotor.setPower(0.0);
+                //intakeMotor.setPower(0.0);
 
                 servoLoaderAssist.setPower(1.0);
                 servoLoaderStartRight.setPower(1.0);
@@ -279,15 +276,13 @@ public class AutoRed extends OpMode
                 stepTimer.reset();
                 launchStep = "a1 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 250)
+            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 300)
             {
                 servoLifter.setPosition(lifterServoDown);
-
-
                 stepTimer.reset();
                 launchStep = "a1 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 250)
+            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 300)
             {
                 axonTargetPosition += 120;
                 if(axonTargetPosition < 0)
@@ -323,23 +318,18 @@ public class AutoRed extends OpMode
             }
             else if (launchStep.equalsIgnoreCase("a2 - initial position") && !robot.magazineEngaged)
             {
-                /*
-                servoLoaderAssist.setPower(-1.0);
-                servoLoaderStartRight.setPower(-1.0);
-                servoLoaderStartLeft.setPower(1.0);
-                 */
                 servoLifter.setPosition(lifterServoUp);
 
                 stepTimer.reset();
                 launchStep = "a2 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 250)
+            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 300)
             {
                 servoLifter.setPosition(lifterServoDown);
                 stepTimer.reset();
                 launchStep = "a2 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 250)
+            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 300)
             {
                 axonTargetPosition += 120;
                 if(axonTargetPosition < 0)
@@ -360,37 +350,63 @@ public class AutoRed extends OpMode
             }
             else if (launchStep.equalsIgnoreCase("a3 - initial position") && !robot.magazineEngaged)
             {
-                /*
-                servoLoaderAssist.setPower(-1.0);
-                servoLoaderStartRight.setPower(-1.0);
-                servoLoaderStartLeft.setPower(1.0);
-                 */
                 servoLifter.setPosition(lifterServoUp);
 
                 stepTimer.reset();
                 launchStep = "a3 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 250)
+            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 300)
             {
                 servoLifter.setPosition(lifterServoDown);
                 stepTimer.reset();
                 launchStep = "a3 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - drop lifter") && stepTimer.milliseconds() > 250)
+            else if (launchStep.equalsIgnoreCase("a3 - drop lifter") && stepTimer.milliseconds() > 300)
             {
                 stepTimer.reset();
                 launchStep = "a3 - turn off launcher";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - turn off launcher") && stepTimer.milliseconds() > 1000)
+            else if (launchStep.equalsIgnoreCase("a3 - turn off launcher") && stepTimer.milliseconds() > 600)
             {
-                servoLoaderAssist.setPower(0.0);
-                servoLoaderStartRight.setPower(0.0);
-                servoLoaderStartLeft.setPower(0.0);
-                motorShooterLeft.setVelocity(0);
-                motorShooterRight.setVelocity(0);
+                chambers = robot.getChambers();
 
-                launchEngaged = false;
-                launchStep = "none";
+                if(chambers[0].substring(0, 1).equalsIgnoreCase("p")
+                        || chambers[0].substring(0, 1).equalsIgnoreCase("g"))
+                {
+                    // still one left in the shooting chamber.
+                    launchStep = "a3 - initial position";
+                }
+                else if(chambers[1].substring(0, 1).equalsIgnoreCase("p")
+                        || chambers[1].substring(0, 1).equalsIgnoreCase("g"))
+                {
+                    // still one left in the control hub chamber.
+                    servoLifter.setPosition(lifterServoDown);
+                    stepTimer.reset();
+                    launchStep = "a2 - drop lifter";
+                }
+                else if(chambers[2].substring(0, 1).equalsIgnoreCase("p")
+                        || chambers[2].substring(0, 1).equalsIgnoreCase("g"))
+                {
+                    // still one left in the expansion hub chamber.
+                    servoLifter.setPosition(lifterServoDown);
+                    axonTargetPosition -= 120;
+                    if(axonTargetPosition < 0)
+                    {
+                        axonTargetPosition += 360;
+                    }
+                    else if(axonTargetPosition > 360)
+                    {
+                        axonTargetPosition -= 360;
+                    }
+                    axonDirection = "ccw";
+                    robot.magazineEngaged = true;
+                    launchStep = "a3 - get next artifact";
+                }
+                else
+                {
+                    launchEngaged = false;
+                    launchStep = "none";
+                }
             }
         }
     }
@@ -528,6 +544,7 @@ public class AutoRed extends OpMode
         VisionPortal portal = new VisionPortal.Builder()
                 .addProcessors(robot.chamberControlColor, robot.chamberBarrelColor, robot.chamberExpansionColor)
                 .setCameraResolution(new Size(1280, 720))
+                .setStreamFormat(VisionPortal.StreamFormat.MJPEG)
                 .setCamera(hardwareMap.get(WebcamName.class, "Internal Cam"))
                 .build();
 
@@ -545,6 +562,8 @@ public class AutoRed extends OpMode
         axonDirection = "cw";
 
         axonState = 0;
+
+        odometry.resetPosAndIMU();
     }
 
     public void init_loop()
@@ -611,165 +630,312 @@ public class AutoRed extends OpMode
     {
         if(step.equalsIgnoreCase("start"))
         {
+            velocityShooting = 1325;//1350
             double[] axonReturn = new double[2];
             axonReturn = robot.axonToOrder(axonTargetPosition);
+            axonTargetPosition = axonReturn[0];
             axonDirection = "cw";
             if(axonReturn[1] == -1.0)
             {
                 axonDirection = "ccw";
             }
-            axonTargetPosition = axonReturn[0];
+            else if (axonReturn[1] == -2.0)
+            {
+                intakeMotor.setPower(1.0); // Turn on intake to bump artifact forward if not all three spots registered
+            }
             robot.magazineEngaged = true;
             timer.reset();
-            step = "move shoot pre";
+            step = "move shoot pre 1";
         }
-        else if(step.equalsIgnoreCase("move shoot pre") && timer.milliseconds() > 250)
+        else if(step.equalsIgnoreCase("move shoot pre 1") && timer.milliseconds() > 300)
         {
-            navXTarget = 10;
-            navYTarget = 1980;
-            navOrientationTarget = 45;
+            navXTarget = 0;
+            navYTarget = 1500;//1500
+            navOrientationTarget = 0;
+            navOnlyRotate = false;
+            navPrecise = false;
+            navEngaged = true;
+            step = "move shoot pre 2";
+        }
+        else if(step.equalsIgnoreCase("move shoot pre 2") && !navEngaged)
+        {
+            navSpeedOverride = 0.9;
+            navXTarget = 200;//200
+            navYTarget = 1950;//1850, 1870
+            navOrientationTarget = 40;//40 , 45, 42
             navOnlyRotate = false;
             navPrecise = true;
             navEngaged = true;
             step = "shoot pre";
         }
-        else if(step.equalsIgnoreCase("shoot pre") && !navEngaged && !robot.magazineEngaged)
+        else if(step.equalsIgnoreCase("shoot pre"))
         {
-            launchType = "all";
-            launchEngaged = true;
-            launchStep = "none";
+            if(navYTarget > 1915)//1890, 1910
+            {
+                launchType = "all";
+                launchEngaged = true;
+                launchStep = "none";
+                step = "start timer 1";
+            }
+        }
+        else if(step.equalsIgnoreCase("start timer 1") && !launchEngaged)
+        {
+            timer.reset();
             step = "rotate collect a1";
         }
-        else if(step.equalsIgnoreCase("rotate collect a1") && !launchEngaged)
+        else if(step.equalsIgnoreCase("rotate collect a1"))
         {
+            navSpeedOverride = -1.0;
             intakeMotor.setPower(1.0);
-            //navXTarget = -500;
-            //navYTarget = 2000;
             navOrientationTarget = 90;
             navOnlyRotate = true;
             navPrecise = true;
             navEngaged = true;
             step = "move collect a1";
         }
+        else if(step.equalsIgnoreCase("move collect a1") && navEngaged)
+        {
+            if(timer.milliseconds() > 500)
+            {
+                // runs the launch motors additional 500ms in case the last ball didn't clear
+                servoLoaderAssist.setPower(0.0);
+                servoLoaderStartRight.setPower(0.0);
+                servoLoaderStartLeft.setPower(0.0);
+                motorShooterLeft.setVelocity(0);
+                motorShooterRight.setVelocity(0);
+            }
+        }
         else if(step.equalsIgnoreCase("move collect a1") && !navEngaged)
         {
-            //intakeMotor.setPower(1.0);
-            navSpeedOverride = 0.6;
-            navXTarget = 1130;//1090
-            navYTarget = 1980;
+            servoLoaderAssist.setPower(0.0);
+            servoLoaderStartRight.setPower(0.0);
+            servoLoaderStartLeft.setPower(0.0);
+            motorShooterLeft.setVelocity(0);
+            motorShooterRight.setVelocity(0);
+            navSpeedOverride = 0.65;//0.4, 0.6, 0.7
+            navXTarget = 990;//1090, 960, 920, 950, 980
+            navYTarget = 1850;
             navOrientationTarget = 90;
             navOnlyRotate = false;
             navPrecise = false;
             navEngaged = true;
             step = "move shoot a1";
         }
-
         else if(step.equalsIgnoreCase("move shoot a1") && !navEngaged)
         {
             navSpeedOverride = -1.0;
-            navXTarget = 10;
-            navYTarget = 1980;
-            navOrientationTarget = 45;
+            navXTarget = 200;
+            navYTarget = 1950;//1850
+            navOrientationTarget = 41;//45 41 42 40
             navOnlyRotate = false;
             navPrecise = true;//= true
             navEngaged = true;
             timer.reset();
-            step = "rotate while driving";
+            step = "mag correct order a1";
         }
-        else if(step.equalsIgnoreCase("rotate while driving") && timer.milliseconds() > 200)
+        else if(step.equalsIgnoreCase("mag correct order a1") && timer.milliseconds() > 300)
         {
             double[] axonReturn = new double[2];
             axonReturn = robot.axonToOrder(axonTargetPosition);
+            axonTargetPosition = axonReturn[0];
             axonDirection = "cw";
             if(axonReturn[1] == -1.0)
             {
                 axonDirection = "ccw";
             }
-            axonTargetPosition = axonReturn[0];
+            else if (axonReturn[1] == -2.0)
+            {
+                intakeMotor.setPower(1.0); // Turn on intake to bump artifact forward if not all three spots registered
+            }
             robot.magazineEngaged = true;
-            //robot.axonToPosition(axonReturn[0], axonDirection);
             timer.reset();
             step = "shoot a1";
         }
-        else if(step.equalsIgnoreCase("shoot a1") && !navEngaged && !robot.magazineEngaged)
+        else if(step.equalsIgnoreCase("shoot a1") && !robot.magazineEngaged && !navEngaged)
         {
-            //intakeMotor.setPower(1.0);
+            intakeMotor.setPower(1.0);
             launchType = "all";
             launchEngaged = true;
             launchStep = "none";
+            step = "start timer 2";
+        }
+        else if(step.equalsIgnoreCase("start timer 2") && !launchEngaged)
+        {
+            //navXTarget = 200;//400
+            //navYTarget = 1260;//1490, 1280
+            navOrientationTarget = 90;
+            navOnlyRotate = true;
+            navPrecise = false;
+            navEngaged = true;
+            timer.reset();
             step = "move collect a2 p1";
         }
-        else if(step.equalsIgnoreCase("move collect a2 p1") && !launchEngaged)
+        else if(step.equalsIgnoreCase("move collect a2 p1") && !navEngaged)
         {
+            timer.reset();
             intakeMotor.setPower(1.0);
             navSpeedOverride = -1.0;
-            navXTarget = 500;//400
-            navYTarget = 1460;//1490
-            navOrientationTarget = 91;
+            navXTarget = 200;//400
+            navYTarget = 1260;//1490, 1280
+            navOrientationTarget = 90;
             navOnlyRotate = false;
             navPrecise = true;
             navEngaged = true;
             step = "move collect a2 p2";
         }
+        else if(step.equalsIgnoreCase("move collect a2 p2") && navEngaged)
+        {
+            if(timer.milliseconds() > 500)
+            {
+                // runs the launch motors additional 500ms in case the last ball didn't clear
+                servoLoaderAssist.setPower(0.0);
+                servoLoaderStartRight.setPower(0.0);
+                servoLoaderStartLeft.setPower(0.0);
+                motorShooterLeft.setVelocity(0);
+                motorShooterRight.setVelocity(0);
+            }
+        }
         else if(step.equalsIgnoreCase("move collect a2 p2") && !navEngaged)
         {
-            //intakeMotor.setPower(0.0);
-            navSpeedOverride = 0.35;//0.6
-            navXTarget = 1290;//-1270
-            navYTarget = 1460;//1490
-            navOrientationTarget = 91;
-            navOnlyRotate = false;
-            navPrecise = false;//false
-            navEngaged = true;
-            step = "move shoot a2 p1";
-        }
-        else if(step.equalsIgnoreCase("move shoot a2 p1") && !navEngaged)
-        {
-            navSpeedOverride = -1.0;
-            navXTarget = 1000;
-            navYTarget = 1460;//1980
-            navOrientationTarget = 60;//315
+            servoLoaderAssist.setPower(0.0);
+            servoLoaderStartRight.setPower(0.0);
+            servoLoaderStartLeft.setPower(0.0);
+            motorShooterLeft.setVelocity(0);
+            motorShooterRight.setVelocity(0);
+            navSpeedOverride = 0.8;
+            navXTarget = 1120;//900, 950, 1020, 1070, 1110
+            navYTarget = 1260;//1980
+            navOrientationTarget = 90;//315
             navOnlyRotate = false;
             navPrecise = false;
             navEngaged = true;
             timer.reset();
-            step = "move shoot a2 p2";
+            step = "move collect a2 p3";
             //step = "shoot a2";
         }
-        else if(step.equalsIgnoreCase("move shoot a2 p2") && !navEngaged)
+        else if(step.equalsIgnoreCase("move collect a2 p3") && !navEngaged)
+        {
+            navSpeedOverride = 0.8;
+            navXTarget = 500;
+            navYTarget = 1260;//1980
+            navOrientationTarget = 90;//315
+            navOnlyRotate = false;
+            navPrecise = false;
+            navEngaged = true;
+            timer.reset();
+            step = "move shoot a2 p4";
+            //step = "shoot a2";
+        }
+        else if(step.equalsIgnoreCase("move shoot a2 p4") && !navEngaged)
         {
             navSpeedOverride = -1.0;
-            navXTarget = 10;
-            navYTarget = 2500;//1980
-            navOrientationTarget = 60;//315
+            navXTarget = 0; //0
+            navYTarget = 2350;//2300// 2350
+            navOrientationTarget = 52;//315, 55
             navOnlyRotate = false;
             navPrecise = true;
             navEngaged = true;
             timer.reset();
             step = "mag correct order a2";
-            //step = "shoot a2";
         }
         else if(step.equalsIgnoreCase("mag correct order a2") && timer.milliseconds() > 200)
         {
             double[] axonReturn = new double[2];
             axonReturn = robot.axonToOrder(axonTargetPosition);
+            axonTargetPosition = axonReturn[0];
             axonDirection = "cw";
             if(axonReturn[1] == -1.0)
             {
                 axonDirection = "ccw";
             }
-            axonTargetPosition = axonReturn[0];
+            else if (axonReturn[1] == -2.0)
+            {
+                intakeMotor.setPower(1.0); // Turn on intake to bump artifact forward if not all three spots registered
+            }
             robot.magazineEngaged = true;
-            //robot.axonToPosition(axonReturn[0], axonDirection);
-            //timer.reset();
             step = "shoot a2";
         }
-        else if(step.equalsIgnoreCase("shoot a2") && !navEngaged && !robot.magazineEngaged)
+        else if(step.equalsIgnoreCase("shoot a2") && !robot.magazineEngaged && !navEngaged)
         {
-            intakeMotor.setPower(0.0);
             launchType = "all";
             launchEngaged = true;
             launchStep = "none";
+            step = "start timer 3";
+        }
+        else if(step.equalsIgnoreCase("start timer 3") && !launchEngaged)
+        {
+            timer.reset();
+            step = "turn off launch motors";
+        }
+        else if(step.equalsIgnoreCase("turn off launch motors"))
+        {
+            if(timer.milliseconds() > 500)
+            {
+                // runs the motors a little longer then shuts them down in case the last ball didn't clear
+                //intakeMotor.setPower(0.0);
+                servoLoaderAssist.setPower(0.0);
+                servoLoaderStartRight.setPower(0.0);
+                servoLoaderStartLeft.setPower(0.0);
+                motorShooterLeft.setVelocity(0);
+                motorShooterRight.setVelocity(0);
+                step = "start timer 4";
+            }
+        }
+        else if(step.equalsIgnoreCase("start timer 4") && !launchEngaged)
+        {
+            timer.reset();
+            step = "move collect a4 p1";
+        }
+        else if(step.equalsIgnoreCase("move collect a4 p1"))
+        {
+            intakeMotor.setPower(1.0);
+            navSpeedOverride = -1.0;
+            navXTarget = 200;//400
+            navYTarget = 640;//1490, 1280 600 620
+            navOrientationTarget = 90;
+            navOnlyRotate = false;
+            timer.reset();
+            navPrecise = true;
+            navEngaged = true;
+            step = "move collect a4 p2";
+        }
+        else if(step.equalsIgnoreCase("move collect a4 p2") && navEngaged)
+        {
+            if(timer.milliseconds() > 500)
+            {
+                // runs the launch motors additional 500ms in case the last ball didn't clear
+                servoLoaderAssist.setPower(0.0);
+                servoLoaderStartRight.setPower(0.0);
+                servoLoaderStartLeft.setPower(0.0);
+                motorShooterLeft.setVelocity(0);
+                motorShooterRight.setVelocity(0);
+            }
+        }
+        else if(step.equalsIgnoreCase("move collect a4 p2") && !navEngaged)
+        {
+            servoLoaderAssist.setPower(0.0);
+            servoLoaderStartRight.setPower(0.0);
+            servoLoaderStartLeft.setPower(0.0);
+            motorShooterLeft.setVelocity(0);
+            motorShooterRight.setVelocity(0);
+            navSpeedOverride = 0.7;//0.6
+            navXTarget = 1120;//1200, 1160, 1150, 1190 1140
+            navYTarget = 640;//1490, 1280 620
+            navOrientationTarget = 90;
+            navOnlyRotate = false;
+            navPrecise = false;//false
+            navEngaged = true;
+            step = "end";
+        }
+        else if(step.equalsIgnoreCase("end") && !navEngaged)
+        {
+            navSpeedOverride = -1.0;//0.6
+            navXTarget = 700;//1200, 1160, 1150, 1190 1140
+            navYTarget = 1580;//1490, 1280 620
+            navOrientationTarget = 0;
+            navOnlyRotate = false;
+            navPrecise = false;//false
+            navEngaged = true;
             step = "end";
         }
     }
