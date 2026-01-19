@@ -149,7 +149,7 @@ public class ShooterBot
         String returnControl = "?";
         String returnExpansion = "?";
 
-        boolean testingSwatchOn = true; // turns on swatch value to return values
+        boolean testingSwatchOn = false; // turns on swatch value to return values
 
         if(resultBarrel.equalsIgnoreCase("GREEN") || resultBarrel.equalsIgnoreCase("ARTIFACT_GREEN"))
         {
@@ -214,7 +214,12 @@ public class ShooterBot
         chambers = getChambers();
         String chamberOrder = chambers[0].substring(0, 1) + chambers[1].substring(0, 1) + chambers[2].substring(0, 1);
 
-        if(motifOrder.equalsIgnoreCase("gpp"))
+        if(chamberOrder.toLowerCase().contains("e"))
+        {
+            axonTarget = ((axonTarget + 360) + 240) % 360;
+            axonDirection = -2.0;
+        }
+        else if(motifOrder.equalsIgnoreCase("gpp"))
         {
             if(chamberOrder.equalsIgnoreCase("gpp"))
             {
