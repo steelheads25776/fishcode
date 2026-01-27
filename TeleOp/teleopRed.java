@@ -123,25 +123,21 @@ public class teleopRed extends LinearOpMode
     double rotationX = 0;
     double rotationY = 0;
 
-    int velocityShooting1 = 1325;
-    int velocityShooting2 = 1325;
-    int velocityShooting3 = 1325;
-
+    int velocityShooting = 1400;//1325
     boolean shootingLong;
-    int velocityLongShooting1 = 1565;
-    int velocityLongShooting2 = 1565;
-    int velocityLongShooting3 = 1565;
-
+    double velocityLongShooting = 1700;//1565, 1650
     String[] chambers = new String[3];
     String launchColor = "none";
 
     LLResult llresult;
     double llX = 0;
+    double llY = 0;
     boolean trackingTag = false;
     ElapsedTime resetTimer;
     String fixStep = "none";
     double trackingError = 1.00;
     double trackingSpeed = 0.0;
+    double distanceToGoal = 0;
     public void drive()
     {
 
@@ -271,7 +267,6 @@ public class teleopRed extends LinearOpMode
     {
         auxBumperLeft = gamepad2.left_bumper; //CCW rotation
         auxBumperRight = gamepad2.right_bumper; //CW rotation
-
         if(auxBumperLeft)
         {
             auxBumperLeftPressed = true;
@@ -317,6 +312,32 @@ public class teleopRed extends LinearOpMode
 
     }
 
+    public void getDistFromGoal()
+    {
+        double targetHeight =75;
+        double cameraHeight = 30.5;
+        double cameraAngle = 15 * (Math.PI/180);
+        if(llresult.isValid() && llresult != null)
+        {
+            llY = llresult.getTy();
+            double targetAngle = llY * (Math.PI/180);
+            distanceToGoal = (targetHeight - cameraHeight) / Math.tan(cameraAngle + targetAngle);
+        }
+        else
+        {
+            distanceToGoal = -1000;
+        }
+
+        if(distanceToGoal <= -1000)
+        {
+            // Can't get distance reading so assume 150 cm
+            distanceToGoal = 150;
+        }
+
+        // 100 cm is min shooting distance, 300 cm is max shooting distance
+        velocityShooting = (int)((distanceToGoal - 100) * ((robot.velocityShootingMax - robot.velocityShootingMin) / 200) + robot.velocityShootingMin);
+    }
+
     public void trackAprilTag()
     {
         driveA = gamepad1.a;
@@ -328,28 +349,6 @@ public class teleopRed extends LinearOpMode
         {
             llX = llresult.getTx();
         }
-
-        /*
-        if(driveA)
-        {
-            driveAPressed = true;
-        }
-        if(!driveA && driveAPressed)
-        {
-            trackingTag = true;
-            driveAPressed = false;
-        }
-
-        if(driveB)
-        {
-            driveBPressed = true;
-        }
-        if(!driveB && driveBPressed)
-        {
-            trackingTag = false;
-            driveBPressed = false;
-        }
-         */
         if(driveA)
         {
             trackingTag = true;
@@ -361,16 +360,20 @@ public class teleopRed extends LinearOpMode
 
         if(trackingTag)
         {
+            if(distanceToGoal > 250)
+            {
+                llX +=2;
+            }
             if(llX > trackingError)// LEFT IS +, RIGHT IS -
             {
-                trackingSpeed = (0.1 + (llX * 0.007));//0.01
+                trackingSpeed = (0.1 + (llX * 0.007));//turn left
                 if(trackingSpeed > 1.0)
                 {
                     trackingSpeed = 1.0;
                 }
                 driveStickRightX = trackingSpeed;
             }
-            else if(llX < (trackingError * -1))
+            else if(llX < (trackingError * -1))     //turn right
             {
                 trackingSpeed = (-0.1 + (llX * 0.007));
                 if(trackingSpeed < -1.0)
@@ -383,6 +386,7 @@ public class teleopRed extends LinearOpMode
             {
                 driveStickRightX = 0;
             }
+
         }
     }
     public void shootSpecific()
@@ -426,6 +430,9 @@ public class teleopRed extends LinearOpMode
             }
             else if(launchStep.equalsIgnoreCase("rotate mag to color") && !robot.magazineEngaged)
             {
+                motorShooterLeft.setVelocity(velocityShooting);
+                motorShooterRight.setVelocity(velocityShooting);
+
                 if(chambers[0].equalsIgnoreCase(launchColor))
                 {
                     launchStep = "s - initial position";
@@ -478,18 +485,18 @@ public class teleopRed extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "s - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("s - lifter engaged") && stepTimer.milliseconds() > 250)
+            else if (launchStep.equalsIgnoreCase("s - lifter engaged") && stepTimer.milliseconds() > 250)//250
             {
                 servoLifter.setPosition(lifterServoDown);
                 if(!shootingLong)
                 {
-                    motorShooterLeft.setVelocity(velocityShooting1);
-                    motorShooterRight.setVelocity(velocityShooting1);
+                    motorShooterLeft.setVelocity(velocityShooting);
+                    motorShooterRight.setVelocity(velocityShooting);
                 }
                 if(shootingLong)
                 {
-                    motorShooterLeft.setVelocity(velocityLongShooting1);
-                    motorShooterRight.setVelocity(velocityLongShooting1);
+                    motorShooterLeft.setVelocity(velocityLongShooting);
+                    motorShooterRight.setVelocity(velocityLongShooting);
                 }
 
                 stepTimer.reset();
@@ -556,17 +563,24 @@ public class teleopRed extends LinearOpMode
                 motorShooterRight.setVelocity(-500);
                 servoLoaderAssist.setPower(-1.0);
                 resetTimer.reset();
+                fixStep = "run shooter";
+            }
+            else if(fixStep.equalsIgnoreCase("run shooter") && resetTimer.milliseconds() >= 500)//500
+            {
+                motorShooterLeft.setVelocity(velocityShooting);
+                motorShooterRight.setVelocity(velocityShooting);
+                //resetTimer.reset();
                 fixStep = "reverse assist";
             }
-            else if(fixStep.equalsIgnoreCase("reverse assist") && resetTimer.milliseconds() >= 500)
+            else if(fixStep.equalsIgnoreCase("reverse assist") && resetTimer.milliseconds() >= 1500)//500
             {
-                motorShooterLeft.setVelocity(velocityShooting1);
-                motorShooterRight.setVelocity(velocityShooting1);
+                motorShooterLeft.setVelocity(velocityShooting);
+                motorShooterRight.setVelocity(velocityShooting);
                 servoLoaderAssist.setPower(1.0);
                 resetTimer.reset();
                 fixStep = "disable shooter";
             }
-            else if(fixStep.equalsIgnoreCase("disable shooter") && resetTimer.milliseconds() >= 300)
+            else if(fixStep.equalsIgnoreCase("disable shooter") && resetTimer.milliseconds() >= 500)//300
             {
                 motorShooterLeft.setVelocity(0);
                 motorShooterRight.setVelocity(0);
@@ -645,24 +659,24 @@ public class teleopRed extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "a1 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 250)
+            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 300)//250
             {
                 servoLifter.setPosition(lifterServoDown);
                 if(!shootingLong)
                 {
-                    motorShooterLeft.setVelocity(velocityShooting1);
-                    motorShooterRight.setVelocity(velocityShooting1);
+                    motorShooterLeft.setVelocity(velocityShooting);
+                    motorShooterRight.setVelocity(velocityShooting);
                 }
                 if(shootingLong)
                 {
-                    motorShooterLeft.setVelocity(velocityLongShooting1);
-                    motorShooterRight.setVelocity(velocityLongShooting1);
+                    motorShooterLeft.setVelocity(velocityLongShooting);
+                    motorShooterRight.setVelocity(velocityLongShooting);
                 }
 
                 stepTimer.reset();
                 launchStep = "a1 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 350)
+            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 300)//350
             {
                 axonTargetPosition += 120;
                 if(axonTargetPosition < 0)
@@ -711,18 +725,18 @@ public class teleopRed extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "a2 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 250)
+            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 300)
             {
                 servoLifter.setPosition(lifterServoDown);
                 if(!shootingLong)
                 {
-                    motorShooterLeft.setVelocity(velocityShooting2);
-                    motorShooterRight.setVelocity(velocityShooting2);
+                    motorShooterLeft.setVelocity(velocityShooting);
+                    motorShooterRight.setVelocity(velocityShooting);
                 }
                 if(shootingLong)
                 {
-                    motorShooterLeft.setVelocity(velocityLongShooting2);
-                    motorShooterRight.setVelocity(velocityLongShooting2);
+                    motorShooterLeft.setVelocity(velocityLongShooting);
+                    motorShooterRight.setVelocity(velocityLongShooting);
                 }
                 //motorShooterLeft.setVelocity(velocityShooting2);
                 //motorShooterRight.setVelocity(velocityShooting2);
@@ -730,7 +744,7 @@ public class teleopRed extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "a2 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 250)
+            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 300)
             {
                 axonTargetPosition += 120;
                 if(axonTargetPosition < 0)
@@ -761,18 +775,18 @@ public class teleopRed extends LinearOpMode
                 stepTimer.reset();
                 launchStep = "a3 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 250)
+            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 300)
             {
                 servoLifter.setPosition(lifterServoDown);
                 if(!shootingLong)
                 {
-                    motorShooterLeft.setVelocity(velocityShooting3);
-                    motorShooterRight.setVelocity(velocityShooting3);
+                    motorShooterLeft.setVelocity(velocityShooting);
+                    motorShooterRight.setVelocity(velocityShooting);
                 }
                 if(shootingLong)
                 {
-                    motorShooterLeft.setVelocity(velocityLongShooting3);
-                    motorShooterRight.setVelocity(velocityLongShooting3);
+                    motorShooterLeft.setVelocity(velocityLongShooting);
+                    motorShooterRight.setVelocity(velocityLongShooting);
                 }
                 //motorShooterLeft.setVelocity(velocityShooting3);
                 //motorShooterRight.setVelocity(velocityShooting3);
@@ -795,6 +809,8 @@ public class teleopRed extends LinearOpMode
     }
     public void showTelemetry()
     {
+        telemetry.addData("lly", llY);
+        telemetry.addData("dist from goal", distanceToGoal);
         telemetry.addData("llx", llX);
         telemetry.addData("tracking speed", trackingSpeed);
 
@@ -942,6 +958,7 @@ public class teleopRed extends LinearOpMode
         VisionPortal portal = new VisionPortal.Builder()
                 .addProcessors(robot.chamberControlColor, robot.chamberBarrelColor, robot.chamberExpansionColor)
                 .setCameraResolution(new Size(1280, 720))
+                .setStreamFormat(VisionPortal.StreamFormat.YUY2)
                 .setCamera(hardwareMap.get(WebcamName.class, "Internal Cam"))
                 .build();
 
@@ -996,6 +1013,7 @@ public class teleopRed extends LinearOpMode
             }
             drive();
             trackAprilTag();
+            getDistFromGoal();
             intake();
             launch();
             shootSpecific();
