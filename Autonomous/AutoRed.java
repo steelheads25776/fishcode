@@ -78,7 +78,7 @@ public class AutoRed extends OpMode
     int tag = -1;
     int test2 = -1;
     String launchColor = "none";
-    int velocityShooting = 1375;//1500
+    int velocityShooting = 1420;//1500
     Servo internalLight;
     boolean finished = false;
     boolean buttonA = false;
@@ -544,7 +544,7 @@ public class AutoRed extends OpMode
         VisionPortal portal = new VisionPortal.Builder()
                 .addProcessors(robot.chamberControlColor, robot.chamberBarrelColor, robot.chamberExpansionColor)
                 .setCameraResolution(new Size(1280, 720))
-                .setStreamFormat(VisionPortal.StreamFormat.MJPEG)
+                .setStreamFormat(VisionPortal.StreamFormat.YUY2)
                 .setCamera(hardwareMap.get(WebcamName.class, "Internal Cam"))
                 .build();
 
@@ -630,7 +630,10 @@ public class AutoRed extends OpMode
     {
         if(step.equalsIgnoreCase("start"))
         {
-            velocityShooting = 1325;//1350
+            //velocityShooting = 1440;//1350
+            double distanceToGoal = 115;
+            velocityShooting = (int)((distanceToGoal - 100) * ((robot.velocityShootingMax - robot.velocityShootingMin) / 200) + robot.velocityShootingMin);
+
             double[] axonReturn = new double[2];
             axonReturn = robot.axonToOrder(axonTargetPosition);
             axonTargetPosition = axonReturn[0];
@@ -670,7 +673,7 @@ public class AutoRed extends OpMode
         }
         else if(step.equalsIgnoreCase("shoot pre"))
         {
-            if(navYTarget > 1915)//1890, 1910
+            if(nav.getY() > 1600)//1890, 1910, 1915
             {
                 launchType = "all";
                 launchEngaged = true;
@@ -712,8 +715,8 @@ public class AutoRed extends OpMode
             servoLoaderStartLeft.setPower(0.0);
             motorShooterLeft.setVelocity(0);
             motorShooterRight.setVelocity(0);
-            navSpeedOverride = 0.65;//0.4, 0.6, 0.7
-            navXTarget = 990;//1090, 960, 920, 950, 980
+            navSpeedOverride = 0.60;//0.4, 0.6, 0.7
+            navXTarget = 1000;//1090, 960, 920, 950, 980, 990
             navYTarget = 1850;
             navOrientationTarget = 90;
             navOnlyRotate = false;
@@ -802,8 +805,8 @@ public class AutoRed extends OpMode
             servoLoaderStartLeft.setPower(0.0);
             motorShooterLeft.setVelocity(0);
             motorShooterRight.setVelocity(0);
-            navSpeedOverride = 0.8;
-            navXTarget = 1120;//900, 950, 1020, 1070, 1110
+            navSpeedOverride = 0.7; //0.8
+            navXTarget = 1130;//900, 950, 1020, 1070, 1110, 1120
             navYTarget = 1260;//1980
             navOrientationTarget = 90;//315
             navOnlyRotate = false;
@@ -829,9 +832,13 @@ public class AutoRed extends OpMode
         else if(step.equalsIgnoreCase("move shoot a2 p4") && !navEngaged)
         {
             navSpeedOverride = -1.0;
+            navXTarget = 200;
+            navYTarget = 1950;//1850
+            /*
             navXTarget = 0; //0
             navYTarget = 2350;//2300// 2350
-            navOrientationTarget = 52;//315, 55
+            */
+            navOrientationTarget = 41;//315, 55
             navOnlyRotate = false;
             navPrecise = true;
             navEngaged = true;
@@ -891,7 +898,7 @@ public class AutoRed extends OpMode
             intakeMotor.setPower(1.0);
             navSpeedOverride = -1.0;
             navXTarget = 200;//400
-            navYTarget = 640;//1490, 1280 600 620
+            navYTarget = 670;//1490, 1280 600 620 640
             navOrientationTarget = 90;
             navOnlyRotate = false;
             timer.reset();
@@ -920,7 +927,7 @@ public class AutoRed extends OpMode
             motorShooterRight.setVelocity(0);
             navSpeedOverride = 0.7;//0.6
             navXTarget = 1120;//1200, 1160, 1150, 1190 1140
-            navYTarget = 640;//1490, 1280 620
+            navYTarget = 670;//1490, 1280 620
             navOrientationTarget = 90;
             navOnlyRotate = false;
             navPrecise = false;//false
