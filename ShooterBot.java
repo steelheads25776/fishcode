@@ -39,6 +39,9 @@ public class ShooterBot
     double powerRotateCCWMax = -0.14;//-0.14, -0.18, -0.20, 0.23
     double powerRotateCCWSlow = -0.07;
 
+    public double velocityShootingMin = 1330;
+    public double velocityShootingMax = 1660d;
+
     int axonFrozen = 0;
 
     private ElapsedTime timer;
@@ -216,6 +219,25 @@ public class ShooterBot
 
         if(chamberOrder.toLowerCase().contains("e"))
         {
+            // If one chamber appears empty, assume the empty is the missing color
+            if(chamberOrder.equalsIgnoreCase("epp") || chamberOrder.equalsIgnoreCase("gep") || chamberOrder.equalsIgnoreCase("gpe"))
+            {
+                chamberOrder = "gpp";
+            }
+            else if(chamberOrder.equalsIgnoreCase("egp") || chamberOrder.equalsIgnoreCase("pep") || chamberOrder.equalsIgnoreCase("pge"))
+            {
+                chamberOrder = "pgp";
+            }
+            else if(chamberOrder.equalsIgnoreCase("epg") || chamberOrder.equalsIgnoreCase("peg") || chamberOrder.equalsIgnoreCase("ppe"))
+            {
+                chamberOrder = "ppg";
+            }
+
+        }
+
+        if(chamberOrder.toLowerCase().contains("e"))
+        {
+            // More than one chamber registered as empty
             axonTarget = ((axonTarget + 360) + 240) % 360;
             axonDirection = -2.0;
         }
