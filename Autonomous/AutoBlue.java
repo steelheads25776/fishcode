@@ -53,11 +53,11 @@ public class AutoBlue extends OpMode
     DcMotorEx motorShooterRight, motorShooterLeft;
     DcMotor intakeMotor;
 
-    CRServo axon;
+    //CRServo axon;
     Navigation nav;
     CRServo servoLoaderStartLeft, servoLoaderStartRight, servoLoaderAssist;
-    Servo servoLifter;
-    AnalogInput axonEncoder;
+    //Servo servoLifter;
+    //AnalogInput axonEncoder;
     ElapsedTime timer;
     ElapsedTime stepTimer;
     ElapsedTime magTimer;
@@ -71,6 +71,10 @@ public class AutoBlue extends OpMode
     double distanceToTarget = 0;
     double distanceToTargetOrientation = 0;
 
+    double lifterDownPosition = 0.5;
+    double liftControlUp = 0.72;//0.71
+    double liftExpansionUp = 0.28;//0.29
+
     LLResult limelightResult;
     String[] chambers = new String[3];
     List<LLResultTypes.FiducialResult> fresult;
@@ -81,9 +85,14 @@ public class AutoBlue extends OpMode
     int velocityShooting = 1420;//1500
     Servo internalLight;
     boolean finished = false;
-    boolean buttonA = false;
-    boolean buttonAPressed = false;
     int axonState = 0;
+
+    int arrPos = 6;
+    double[] servoPositions = new double[13];
+
+    Servo liftControl;
+    Servo liftExpansion;
+    Servo turntable;
 
     double[] motifOrderReturn = new double[2];
     public void sleep(int milliseconds)
@@ -94,6 +103,7 @@ public class AutoBlue extends OpMode
             //do nothing
         }
     }
+    /*
     public void launchArtifact()
     {
         if(launchEngaged)
@@ -163,11 +173,7 @@ public class AutoBlue extends OpMode
             }
             else if (launchStep.equalsIgnoreCase("a2 - initial position") && !robot.magazineEngaged)
             {
-                /*
-                servoLoaderAssist.setPower(-1.0);
-                servoLoaderStartRight.setPower(-1.0);
-                servoLoaderStartLeft.setPower(1.0);
-                 */
+
                 servoLifter.setPosition(lifterServoUp);
 
                 stepTimer.reset();
@@ -203,11 +209,7 @@ public class AutoBlue extends OpMode
             }
             else if (launchStep.equalsIgnoreCase("a3 - initial position") && !robot.magazineEngaged)
             {
-                /*
-                servoLoaderAssist.setPower(-1.0);
-                servoLoaderStartRight.setPower(-1.0);
-                servoLoaderStartLeft.setPower(1.0);
-                 */
+
                 servoLifter.setPosition(lifterServoUp);
 
                 stepTimer.reset();
@@ -234,6 +236,7 @@ public class AutoBlue extends OpMode
             }
         }
     }
+    */
 
     public void launchArtifactOrder()
     {
@@ -246,59 +249,66 @@ public class AutoBlue extends OpMode
                 //robot.magazineEngaged = true;
                 launchStep = "rotate to order";
             }
-            else if (launchStep.equalsIgnoreCase("rotate to order") && !robot.magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("rotate to order"))
             {
                 motifOrderReturn = robot.axonToOrder(axonTargetPosition);
-                axonTargetPosition = motifOrderReturn[0];
-                axonDirection = "cw";
-                if(motifOrderReturn[1] == -1.0)
+                //axonTargetPosition = motifOrderReturn[0];
+                //axonDirection = "cw";
+
+                if(motifOrderReturn[0] == 1)
                 {
-                    axonDirection = "ccw";
+                    arrPos +=1;
                 }
+                if(motifOrderReturn[0] == -1)
+                {
+                    arrPos -=1;
+                }
+                if(motifOrderReturn[0] == 2)
+                {
+                    arrPos += 2;
+                }
+                /*
                 else if (motifOrderReturn[1] == -2.0)
                 {
                     // At least one magazine spot is empty or didn't register
                     // Don't rotate and just shoot
                     axonTargetPosition = ((axonTargetPosition + 360) - 240) % 360;  // Sets value back to starting value so doesn't rotate
                 }
-                robot.magazineEngaged = true;
+
+                 */
+                //robot.magazineEngaged = true;
+                stepTimer.reset();
                 launchStep = "a1 - initial position";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - initial position") && !robot.magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a1 - initial position") && stepTimer.milliseconds() > 300)
             {
                 //intakeMotor.setPower(0.0);
 
                 servoLoaderAssist.setPower(1.0);
                 servoLoaderStartRight.setPower(1.0);
                 servoLoaderStartLeft.setPower(-1.0);
-                servoLifter.setPosition(lifterServoUp);
+                //servoLifter.setPosition(lifterServoUp);
+                liftControl.setPosition(liftControlUp);
+                liftExpansion.setPosition(liftExpansionUp);
 
                 stepTimer.reset();
                 launchStep = "a1 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 300)
+            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 200)
             {
-                servoLifter.setPosition(lifterServoDown);
+                liftControl.setPosition(lifterDownPosition);
+                liftExpansion.setPosition(lifterDownPosition);
                 stepTimer.reset();
                 launchStep = "a1 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 300)
+            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 200)
             {
-                axonTargetPosition += 120;
-                if(axonTargetPosition < 0)
-                {
-                    axonTargetPosition += 360;
-                }
-                else if(axonTargetPosition > 360)
-                {
-                    axonTargetPosition -= 360;
-                }
-                axonDirection = "cw";
-                robot.magazineEngaged = true;
-                launchStep = "a2 - get next artifact";
+                arrPos += 1;
+                //robot.magazineEngaged = true;
                 stepTimer.reset();
+                launchStep = "a2 - get next artifact";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - get next artifact") && !robot.magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a2 - get next artifact") && stepTimer.milliseconds() > 300)
             {
                 if(launchType.equalsIgnoreCase("current"))
                 {
@@ -313,61 +323,62 @@ public class AutoBlue extends OpMode
                 }
                 else if(launchType.equalsIgnoreCase("all"))
                 {
+                    motorShooterLeft.setVelocity((velocityShooting-60));
+                    motorShooterRight.setVelocity((velocityShooting-60)); //lower speed for 2nd shot
                     launchStep = "a2 - initial position";
                 }
             }
-            else if (launchStep.equalsIgnoreCase("a2 - initial position") && !robot.magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a2 - initial position"))
             {
-                servoLifter.setPosition(lifterServoUp);
+                liftControl.setPosition(liftControlUp);
+                liftExpansion.setPosition(liftExpansionUp);
 
                 stepTimer.reset();
                 launchStep = "a2 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 300)
+            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 200)
             {
-                servoLifter.setPosition(lifterServoDown);
+                liftControl.setPosition(lifterDownPosition);
+                liftExpansion.setPosition(lifterDownPosition);
                 stepTimer.reset();
                 launchStep = "a2 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 300)
+            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 200)
             {
-                axonTargetPosition += 120;
-                if(axonTargetPosition < 0)
-                {
-                    axonTargetPosition += 360;
-                }
-                else if(axonTargetPosition > 360)
-                {
-                    axonTargetPosition -= 360;
-                }
-                axonDirection = "cw";
-                robot.magazineEngaged = true;
+                arrPos += 1;
+                stepTimer.reset();
                 launchStep = "a3 - get next artifact";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - get next artifact") && !robot.magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a3 - get next artifact") && stepTimer.milliseconds() > 300)
             {
+                motorShooterLeft.setVelocity((velocityShooting-60));
+                motorShooterRight.setVelocity((velocityShooting-60)); //lower speed for 3rd shot
                 launchStep = "a3 - initial position";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - initial position") && !robot.magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a3 - initial position"))
             {
-                servoLifter.setPosition(lifterServoUp);
+                liftControl.setPosition(liftControlUp);
+                liftExpansion.setPosition(liftExpansionUp);
 
                 stepTimer.reset();
                 launchStep = "a3 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 300)
+            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 200)
             {
-                servoLifter.setPosition(lifterServoDown);
+                liftControl.setPosition(lifterDownPosition);
+                liftExpansion.setPosition(lifterDownPosition);
                 stepTimer.reset();
                 launchStep = "a3 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - drop lifter") && stepTimer.milliseconds() > 300)
+            else if (launchStep.equalsIgnoreCase("a3 - drop lifter") && stepTimer.milliseconds() > 200)
             {
                 stepTimer.reset();
                 launchStep = "a3 - turn off launcher";
             }
             else if (launchStep.equalsIgnoreCase("a3 - turn off launcher") && stepTimer.milliseconds() > 700)
             {
+                motorShooterLeft.setVelocity((velocityShooting));
+                motorShooterRight.setVelocity((velocityShooting)); //lower speed for 3rd shot
                 chambers = robot.getChambers();
 
                 if(chambers[0].substring(0, 1).equalsIgnoreCase("p")
@@ -380,7 +391,8 @@ public class AutoBlue extends OpMode
                         || chambers[1].substring(0, 1).equalsIgnoreCase("g"))
                 {
                     // still one left in the control hub chamber.
-                    servoLifter.setPosition(lifterServoDown);
+                    liftControl.setPosition(lifterDownPosition);
+                    liftExpansion.setPosition(lifterDownPosition);
                     stepTimer.reset();
                     launchStep = "a2 - drop lifter";
                 }
@@ -388,22 +400,15 @@ public class AutoBlue extends OpMode
                         || chambers[2].substring(0, 1).equalsIgnoreCase("g"))
                 {
                     // still one left in the expansion hub chamber.
-                    servoLifter.setPosition(lifterServoDown);
-                    axonTargetPosition -= 120;
-                    if(axonTargetPosition < 0)
-                    {
-                        axonTargetPosition += 360;
-                    }
-                    else if(axonTargetPosition > 360)
-                    {
-                        axonTargetPosition -= 360;
-                    }
-                    axonDirection = "ccw";
-                    robot.magazineEngaged = true;
+                    liftControl.setPosition(lifterDownPosition);
+                    liftExpansion.setPosition(lifterDownPosition);
+                    arrPos -= 1;
+                    stepTimer.reset();
                     launchStep = "a3 - get next artifact";
                 }
                 else
                 {
+                    arrPos = 6;
                     launchEngaged = false;
                     launchStep = "none";
                 }
@@ -411,6 +416,7 @@ public class AutoBlue extends OpMode
         }
     }
 
+    /*
     public void rotateToOrder()
     {
         motifOrderReturn = robot.axonToOrder(axonTargetPosition);
@@ -430,6 +436,8 @@ public class AutoBlue extends OpMode
             robot.magazineEngaged = true;
         }
     }
+
+     */
 
     public void findOrder()
     {
@@ -490,12 +498,16 @@ public class AutoBlue extends OpMode
         magTimer = new ElapsedTime();
         servoLoaderStartLeft = hardwareMap.get(CRServo.class, "StartLeft");
         servoLoaderStartRight = hardwareMap.get(CRServo.class, "StartRight");
+
+        servoLoaderStartLeft.setDirection(CRServo.Direction.REVERSE);
+        servoLoaderStartRight.setDirection(CRServo.Direction.REVERSE);
+
         servoLoaderAssist = hardwareMap.get(CRServo.class, "LoaderAssist");
         internalLight = hardwareMap.get(Servo.class, "InternalLight");
-        servoLifter = hardwareMap.get(Servo.class, "lifter");
+        //servoLifter = hardwareMap.get(Servo.class, "lifter");
 
-        axon = hardwareMap.get(CRServo.class, "axon");
-        axonEncoder = hardwareMap.get(AnalogInput.class, "axonEncoder");
+        //axon = hardwareMap.get(CRServo.class, "axon");
+        //axonEncoder = hardwareMap.get(AnalogInput.class, "axonEncoder");
 
         motorFrontLeft = hardwareMap.get(DcMotor.class, "FrontLeft");
         motorFrontRight = hardwareMap.get(DcMotor.class, "FrontRight");
@@ -537,8 +549,8 @@ public class AutoBlue extends OpMode
 
         robot = new ShooterBot();
         robot.setLaunchMotors(motorShooterLeft, motorShooterRight);
-        robot.setMagazine(axon, axonEncoder);
-        robot.setLoadServos(servoLifter, servoLoaderStartLeft, servoLoaderStartRight, servoLoaderAssist);
+        //robot.setMagazine(axon, axonEncoder);
+        //robot.setLoadServos(servoLifter, servoLoaderStartLeft, servoLoaderStartRight, servoLoaderAssist);
         robot.startCameraSensors();
 
         VisionPortal portal = new VisionPortal.Builder()
@@ -558,20 +570,44 @@ public class AutoBlue extends OpMode
         robot.changePipeline(0);
         robot.startLimelight();
 
-        robot.magazineEngaged = true;
+        //robot.magazineEngaged = true;
         axonDirection = "cw";
 
         axonState = 0;
 
         odometry.resetPosAndIMU();
+
+        liftControl = hardwareMap.get(Servo.class, "liftControl");
+        liftExpansion = hardwareMap.get(Servo.class, "liftExpansion");
+        liftControl.setDirection(Servo.Direction.FORWARD);
+        liftExpansion.setDirection(Servo.Direction.FORWARD);
+
+        turntable = hardwareMap.get(Servo.class, "axon");
+
+        servoPositions[0] = 0.3461;
+        servoPositions[1] = 0.3695;
+        servoPositions[2] = 0.3949;//0.3965, 0.39485
+        servoPositions[3] = 0.4202;
+        servoPositions[4] = 0.4463;
+        servoPositions[5] = 0.4726;
+        servoPositions[6] = 0.5;
+        servoPositions[7] = 0.5299;//0.007
+        servoPositions[8] = 0.5578;//0.003
+        servoPositions[9] = 0.5874;//0.012
+        servoPositions[10] = 0.6142;
+        servoPositions[11] = 0.6427;
+        servoPositions[12] = 0.6703;
     }
 
     public void init_loop()
     {
+        /*
         if(robot.magazineEngaged)
         {
             robot.axonToPosition(axonTargetPosition, axonDirection);
         }
+
+     */
         findOrder();
         robot.motifOrder = motifOrder;
         chambers = robot.getChambers();
@@ -604,8 +640,8 @@ public class AutoBlue extends OpMode
         telemetry.addData("motifOrder", motifOrder);
         telemetry.addData("Step", step);
         telemetry.addData("launchStep", launchStep);
-        telemetry.addData("magazineEngaged", robot.magazineEngaged);
-        telemetry.addData("axon Position", (axonEncoder.getVoltage() / 3.3) * 360);
+        //telemetry.addData("magazineEngaged", robot.magazineEngaged);
+        //telemetry.addData("axon Position", (axonEncoder.getVoltage() / 3.3) * 360);
         telemetry.addData("navXTarget", navXTarget);
         telemetry.addData("navYTarget", navYTarget);
         telemetry.addData("navOrientationTarget", navOrientationTarget);
@@ -631,9 +667,10 @@ public class AutoBlue extends OpMode
         if(step.equalsIgnoreCase("start"))
         {
             //velocityShooting = 1440;//1350
-            double distanceToGoal = 115;
+            double distanceToGoal = 115;//115
             velocityShooting = (int) ((distanceToGoal - 100) * ((robot.velocityShootingMax - robot.velocityShootingMin) / 200) + robot.velocityShootingMin);
 
+            /*
             double[] axonReturn = new double[2];
             axonReturn = robot.axonToOrder(axonTargetPosition);
             axonTargetPosition = axonReturn[0];
@@ -647,6 +684,7 @@ public class AutoBlue extends OpMode
                 intakeMotor.setPower(1.0); // Turn on intake to bump artifact forward if not all three spots registered
             }
             robot.magazineEngaged = true;
+             */
             timer.reset();
             step = "move shoot pre 1";
         }
@@ -663,23 +701,21 @@ public class AutoBlue extends OpMode
         else if(step.equalsIgnoreCase("move shoot pre 2") && !navEngaged)
         {
             navSpeedOverride = 0.9;
-            navXTarget = -200;//200
-            navYTarget = 1950;//1850, 1870
-            navOrientationTarget = 320;//40 , 45, 42
+            navXTarget = -250;//200
+            navYTarget = 2000;//1850, 1870
+            navOrientationTarget = 322;//40 , 45, 42
             navOnlyRotate = false;
             navPrecise = true;
             navEngaged = true;
             step = "shoot pre";
         }
-        else if(step.equalsIgnoreCase("shoot pre"))
+        //else if(step.equalsIgnoreCase("shoot pre") && !navEngaged)
+        else if(step.equalsIgnoreCase("shoot pre") && distanceToTarget < 100)
         {
-            if(nav.getY() > 1600)//1890, 1910, 1915
-            {
-                launchType = "all";
-                launchEngaged = true;
-                launchStep = "none";
-                step = "start timer 1";
-            }
+            launchType = "all";
+            launchEngaged = true;
+            launchStep = "none";
+            step = "start timer 1";
         }
         else if(step.equalsIgnoreCase("start timer 1") && !launchEngaged)
         {
@@ -727,9 +763,9 @@ public class AutoBlue extends OpMode
         else if(step.equalsIgnoreCase("move shoot a1") && !navEngaged)
         {
             navSpeedOverride = -1.0;
-            navXTarget = -200;
-            navYTarget = 1950;//1850
-            navOrientationTarget = 319;//45 41 42 40
+            navXTarget = -250;
+            navYTarget = 2000;//1850
+            navOrientationTarget = 322;//45 41 42 40
             navOnlyRotate = false;
             navPrecise = true;//= true
             navEngaged = true;
@@ -738,6 +774,7 @@ public class AutoBlue extends OpMode
         }
         else if(step.equalsIgnoreCase("mag correct order a1") && timer.milliseconds() > 300)
         {
+            /*
             double[] axonReturn = new double[2];
             axonReturn = robot.axonToOrder(axonTargetPosition);
             axonTargetPosition = axonReturn[0];
@@ -751,10 +788,13 @@ public class AutoBlue extends OpMode
                 intakeMotor.setPower(1.0); // Turn on intake to bump artifact forward if not all three spots registered
             }
             robot.magazineEngaged = true;
+
+             */
             timer.reset();
             step = "shoot a1";
         }
-        else if(step.equalsIgnoreCase("shoot a1") && !robot.magazineEngaged && !navEngaged)
+        else if(step.equalsIgnoreCase("shoot a1") && !navEngaged)
+        //else if(step.equalsIgnoreCase("shoot a1") && distanceToTarget < 100)
         {
             intakeMotor.setPower(1.0);
             launchType = "all";
@@ -832,13 +872,13 @@ public class AutoBlue extends OpMode
         else if(step.equalsIgnoreCase("move shoot a2 p4") && !navEngaged)
         {
             navSpeedOverride = -1.0;
-            navXTarget = -200;
-            navYTarget = 1950;//1850
+            navXTarget = -250;
+            navYTarget = 2000;//1850
             /*
             navXTarget = 0; //0
             navYTarget = 2350;//2300// 2350
             */
-            navOrientationTarget = 319;//315, 55
+            navOrientationTarget = 322;//315, 55
             navOnlyRotate = false;
             navPrecise = true;
             navEngaged = true;
@@ -847,6 +887,7 @@ public class AutoBlue extends OpMode
         }
         else if(step.equalsIgnoreCase("mag correct order a2") && timer.milliseconds() > 200)
         {
+            /*
             double[] axonReturn = new double[2];
             axonReturn = robot.axonToOrder(axonTargetPosition);
             axonTargetPosition = axonReturn[0];
@@ -860,9 +901,11 @@ public class AutoBlue extends OpMode
                 intakeMotor.setPower(1.0); // Turn on intake to bump artifact forward if not all three spots registered
             }
             robot.magazineEngaged = true;
+            */
             step = "shoot a2";
         }
-        else if(step.equalsIgnoreCase("shoot a2") && !robot.magazineEngaged && !navEngaged)
+        //else if(step.equalsIgnoreCase("shoot a2") && !navEngaged)
+        else if(step.equalsIgnoreCase("shoot a2") && distanceToTarget < 100)
         {
             launchType = "all";
             launchEngaged = true;
@@ -932,17 +975,24 @@ public class AutoBlue extends OpMode
             navOnlyRotate = false;
             navPrecise = false;//false
             navEngaged = true;
-            step = "end";
+            step = "end movement";
         }
-        else if(step.equalsIgnoreCase("end") && !navEngaged)
+        else if(step.equalsIgnoreCase("end movement") && !navEngaged)
         {
             navSpeedOverride = -1.0;//0.6
             navXTarget = -700;//1200, 1160, 1150, 1190 1140
             navYTarget = 1580;//1490, 1280 620
             navOrientationTarget = 0;
+            //intakeMotor.setPower(0.0);
             navOnlyRotate = false;
-            navPrecise = false;//false
+            navPrecise = true;//false
             navEngaged = true;
+            timer.reset();
+            step = "end turn off intake";
+        }
+        else if(step.equalsIgnoreCase("end turn off intake") && !navEngaged)
+        {
+            intakeMotor.setPower(0.0);
             step = "end";
         }
     }
@@ -970,10 +1020,14 @@ public class AutoBlue extends OpMode
             distanceToTarget = navReturn[1];
             distanceToTargetOrientation = navReturn[2];
         }
+        /*
         if(robot.magazineEngaged)
         {
             robot.axonToPosition(axonTargetPosition, axonDirection);
         }
+
+         */
+        turntable.setPosition(servoPositions[arrPos]);
         showTelemetry();
     }
 }
