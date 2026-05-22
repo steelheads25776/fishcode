@@ -39,8 +39,8 @@ public class ShooterBot
     double powerRotateCCWMax = -0.14;//-0.14, -0.18, -0.20, 0.23
     double powerRotateCCWSlow = -0.07;
 
-    public double velocityShootingMin = 1330;
-    public double velocityShootingMax = 1660d;
+    public double velocityShootingMin = 950;//920 for steel, 1300 for plastic
+    public double velocityShootingMax = 1120;//1120 for steel, 1560 for plastic
 
     int axonFrozen = 0;
 
@@ -212,7 +212,8 @@ public class ShooterBot
     public double[] axonToOrder(double axonTargetCurrent)
     {
         double[] axonReturn = new double[2];
-        double axonTarget = axonTargetCurrent;
+        //double axonTarget = axonTargetCurrent;
+        double turns = 0;
         double axonDirection = 0;//1.0 = cw, -1.0 = ccw
         chambers = getChambers();
         String chamberOrder = chambers[0].substring(0, 1) + chambers[1].substring(0, 1) + chambers[2].substring(0, 1);
@@ -238,8 +239,9 @@ public class ShooterBot
         if(chamberOrder.toLowerCase().contains("e"))
         {
             // More than one chamber registered as empty
-            axonTarget = ((axonTarget + 360) + 240) % 360;
-            axonDirection = -2.0;
+            //axonTarget = ((axonTarget + 360) + 240) % 360;
+            turns =2; //2 clockwise rotations
+            axonDirection = 2.0;
         }
         else if(motifOrder.equalsIgnoreCase("gpp"))
         {
@@ -249,21 +251,24 @@ public class ShooterBot
             }
             else if(chamberOrder.equalsIgnoreCase("pgp"))
             {
-                axonTarget = ((axonTarget + 360) + 120) % 360;
-                axonDirection = 1.0;
+                //axonTarget = ((axonTarget + 360) + 120) % 360;
+                turns = 1;
+                axonDirection = 1.0;//cw
             }
             else if(chamberOrder.equalsIgnoreCase("ppg"))
             {
-                axonTarget = ((axonTarget + 360) - 120) % 360;
-                axonDirection = -1.0;
+                //axonTarget = ((axonTarget + 360) - 120) % 360;
+                turns = -1;
+                axonDirection = -1.0;//ccw
             }
         }
         else if(motifOrder.equalsIgnoreCase("pgp"))
         {
             if(chamberOrder.equalsIgnoreCase("gpp"))
             {
-                axonTarget = ((axonTarget + 360) - 120) % 360;
-                axonDirection = -1.0;
+                //axonTarget = ((axonTarget + 360) - 120) % 360;
+                turns = -1;
+                axonDirection = -1.0;//ccw
             }
             else if(chamberOrder.equalsIgnoreCase("pgp"))
             {
@@ -271,21 +276,24 @@ public class ShooterBot
             }
             else if(chamberOrder.equalsIgnoreCase("ppg"))
             {
-                axonTarget = ((axonTarget + 360) + 120) % 360;
-                axonDirection = 1.0;
+                //axonTarget = ((axonTarget + 360) + 120) % 360;
+                turns = 1;
+                axonDirection = 1.0;//cw
             }
         }
         else if(motifOrder.equalsIgnoreCase("ppg"))
         {
             if(chamberOrder.equalsIgnoreCase("gpp"))
             {
-                axonTarget = ((axonTarget + 360) + 120) % 360;
-                axonDirection = 1.0;
+                //axonTarget = ((axonTarget + 360) + 120) % 360;
+                turns = 1;
+                axonDirection = 1.0;//cw
             }
             else if(chamberOrder.equalsIgnoreCase("pgp"))
             {
-                axonTarget = ((axonTarget + 360) - 120) % 360;
-                axonDirection = -1.0;
+                //axonTarget = ((axonTarget + 360) - 120) % 360;
+                turns = -1;
+                axonDirection = -1.0;//ccw
             }
             else if(chamberOrder.equalsIgnoreCase("ppg"))
             {
@@ -293,7 +301,7 @@ public class ShooterBot
             }
         }
 
-        axonReturn[0] = axonTarget;
+        axonReturn[0] = turns;
         axonReturn[1] = axonDirection;
 
         return axonReturn;
