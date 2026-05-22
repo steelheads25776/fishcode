@@ -45,10 +45,11 @@ public class teleopRed extends LinearOpMode
 
 
 
-    CRServo axon;
+    Servo turntable;
+    //CRServo axon;
     CRServo servoLoaderStartLeft, servoLoaderStartRight, servoLoaderAssist;
-    Servo servoLifter;
-    AnalogInput axonEncoder;
+    //Servo servoLifter;
+    //AnalogInput axonEncoder;
     Servo internalLight;
     DcMotor intakeMotor;
 
@@ -103,12 +104,14 @@ public class teleopRed extends LinearOpMode
     boolean auxBumperLeftPressed;
     boolean auxBumperRightPressed;
     boolean launchEngaged = false;
+
+    boolean flyEngaged = false;
     int loaderState = 0;
     int shooterState = 0;
     int intakeState = 0;
     int lifterServoState = 0;
     int magState = 0;
-    boolean bumperRightPressed;
+    //boolean bumperRightPressed;
     final int initialTarget = 43;
     ElapsedTime testTimer;
     ElapsedTime stepTimer;
@@ -123,7 +126,7 @@ public class teleopRed extends LinearOpMode
     double rotationX = 0;
     double rotationY = 0;
 
-    int velocityShooting = 1400;//1325
+    double velocityShooting = 1400;//1325
     boolean shootingLong;
     double velocityLongShooting = 1700;//1565, 1650
     String[] chambers = new String[3];
@@ -138,6 +141,17 @@ public class teleopRed extends LinearOpMode
     double trackingError = 1.00;
     double trackingSpeed = 0.0;
     double distanceToGoal = 0;
+
+    double lifterDownPosition = 0.5;
+    double liftControlUp = 0.72;//0.71
+    double liftExpansionUp = 0.28;//0.29
+
+    int arrPos = 6;
+    double[] servoPositions = new double[13];
+    int shooterMotorState = 0;
+
+    Servo liftControl;
+    Servo liftExpansion;
     public void drive()
     {
 
@@ -267,51 +281,87 @@ public class teleopRed extends LinearOpMode
     {
         auxBumperLeft = gamepad2.left_bumper; //CCW rotation
         auxBumperRight = gamepad2.right_bumper; //CW rotation
+        auxY = gamepad2.y;
+
+        if(auxY)
+        {
+            auxYPressed = true;
+        }
+        else if(!auxY && auxYPressed)
+        {
+            arrPos = 6;
+            auxYPressed = false;
+        }
+
         if(auxBumperLeft)
         {
             auxBumperLeftPressed = true;
         }
+        else if(!auxBumperLeft && auxBumperLeftPressed == true)//CCW
+        {
+            /*
+            currentPos -= incrementCCW;
+            turntable.setPosition(currentPos);
+             */
+            if(arrPos > 0)
+            {
+                arrPos -= 1;
+            }
+            auxBumperLeftPressed = false;
+        }
+
         if(auxBumperRight)
         {
             auxBumperRightPressed = true;
         }
-
-        if(!auxBumperLeft && auxBumperLeftPressed)
+        else if(!auxBumperRight && auxBumperRightPressed == true)//CW
         {
-            //testAxon.changeTargetRotation(40);
-            axonTargetPosition -= 120;
-            if(axonTargetPosition < 0)
+            /*
+            currentPos += incrementCW;
+            turntable.setPosition(currentPos);
+             */
+            if(arrPos < 12)
             {
-                axonTargetPosition += 360;
+                arrPos += 1;
             }
-            else if(axonTargetPosition > 360)
-            {
-                axonTargetPosition -= 360;
-            }
-            axonDirection = "ccw";
-            robot.magazineEngaged = true;
-            auxBumperLeftPressed = false;
-        }
-
-        if(!auxBumperRight && auxBumperRightPressed)
-        {
-            //testAxon.setTargetRotation(160);
-            axonTargetPosition += 120;
-            if(axonTargetPosition < 0)
-            {
-                axonTargetPosition += 360;
-            }
-            else if(axonTargetPosition > 360)
-            {
-                axonTargetPosition -= 360;
-            }
-            axonDirection = "cw";
-            robot.magazineEngaged = true;
             auxBumperRightPressed = false;
         }
 
+        turntable.setPosition(servoPositions[arrPos]);
+
     }
 
+    public void startMotors()
+    {
+        auxX = gamepad2.x;
+
+        if(auxX)
+        {
+            auxXPressed = true;
+        }
+        else if(!auxX && auxXPressed)
+        {
+            /*
+            if(shooterMotorState == 0)
+            {
+                motorShooterLeft.setVelocity(velocityShooting);
+                motorShooterRight.setVelocity(velocityShooting);
+                shooterMotorState = 1;
+            }
+            else if(shooterMotorState == 1)
+            {
+                motorShooterLeft.setVelocity(0);
+                motorShooterRight.setVelocity(0);
+                shooterMotorState = 0;
+            }
+
+             */
+            motorShooterLeft.setVelocity(1000);
+            motorShooterRight.setVelocity(1000);
+
+            auxXPressed = false;
+        }
+    }
     public void getDistFromGoal()
     {
         double targetHeight =75;
@@ -335,7 +385,8 @@ public class teleopRed extends LinearOpMode
         }
 
         // 100 cm is min shooting distance, 300 cm is max shooting distance
-        velocityShooting = (int)((distanceToGoal - 100) * ((robot.velocityShootingMax - robot.velocityShootingMin) / 200) + robot.velocityShootingMin);
+        velocityShooting = (int)((distanceToGoal - 100) * ((robot.velocityShootingMax - robot.velocityShootingMin) / (200)) + robot.velocityShootingMin);
+
     }
 
     public void trackAprilTag()
@@ -349,6 +400,7 @@ public class teleopRed extends LinearOpMode
         {
             llX = llresult.getTx();
         }
+
         if(driveA)
         {
             trackingTag = true;
@@ -362,18 +414,18 @@ public class teleopRed extends LinearOpMode
         {
             if(distanceToGoal > 250)
             {
-                llX +=2;
+                llX -=2;
             }
             if(llX > trackingError)// LEFT IS +, RIGHT IS -
             {
-                trackingSpeed = (0.1 + (llX * 0.007));//turn left
+                trackingSpeed = (0.1 + (llX * 0.007));//0.01
                 if(trackingSpeed > 1.0)
                 {
                     trackingSpeed = 1.0;
                 }
                 driveStickRightX = trackingSpeed;
             }
-            else if(llX < (trackingError * -1))     //turn right
+            else if(llX < (trackingError * -1))
             {
                 trackingSpeed = (-0.1 + (llX * 0.007));
                 if(trackingSpeed < -1.0)
@@ -386,9 +438,9 @@ public class teleopRed extends LinearOpMode
             {
                 driveStickRightX = 0;
             }
-
         }
     }
+    /*
     public void shootSpecific()
     {
         auxDpadL = gamepad2.dpad_left;//shoot purple
@@ -519,6 +571,8 @@ public class teleopRed extends LinearOpMode
             }
         }
     }
+
+     */
     public void fixShooter()
     {
         auxDpadU = gamepad2.dpad_up;
@@ -602,7 +656,7 @@ public class teleopRed extends LinearOpMode
     {
         auxTriggerLeft = gamepad2.left_trigger;  // launch current
         auxTriggerRight = gamepad2.right_trigger;  // launch all
-        auxX = gamepad2.x;
+
         if(!launchEngaged)
         {
             if (auxTriggerRight >= 0.3)
@@ -612,15 +666,6 @@ public class teleopRed extends LinearOpMode
             if (auxTriggerLeft >= 0.3)
             {
                 auxTriggerLeftPressed = true;
-            }
-
-            if(auxX)
-            {
-                shootingLong = true;
-            }
-            if(!auxX)
-            {
-                shootingLong = false;
             }
 
             if (auxTriggerLeft < 0.3 && auxTriggerLeftPressed)
@@ -644,66 +689,53 @@ public class teleopRed extends LinearOpMode
         {
             if(launchStep.equalsIgnoreCase("none"))
             {
-                robot.magazineEngaged = true;
                 launchStep = "a1 - initial position";
+                motorShooterLeft.setVelocity(velocityShooting);
+                motorShooterRight.setVelocity(velocityShooting);
+                //shooterMotorState = 0;
+                stepTimer.reset();
             }
-            else if (launchStep.equalsIgnoreCase("a1 - initial position") && !robot.magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a1 - initial position") && (stepTimer.milliseconds() > 500 || flyEngaged))//200 works, 500 for brief test
             {
-                intakeMotor.setPower(0.0);
-
                 servoLoaderAssist.setPower(1.0);
                 servoLoaderStartRight.setPower(1.0);
+
+                flyEngaged = false;
                 servoLoaderStartLeft.setPower(-1.0);
-                servoLifter.setPosition(lifterServoUp);
+                liftExpansion.setPosition(liftExpansionUp);
+                liftControl.setPosition(liftControlUp);
 
                 stepTimer.reset();
                 launchStep = "a1 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 300)//250
+            else if (launchStep.equalsIgnoreCase("a1 - lifter engaged") && stepTimer.milliseconds() > 150)//300
             {
-                servoLifter.setPosition(lifterServoDown);
-                if(!shootingLong)
-                {
-                    motorShooterLeft.setVelocity(velocityShooting);
-                    motorShooterRight.setVelocity(velocityShooting);
-                }
-                if(shootingLong)
-                {
-                    motorShooterLeft.setVelocity(velocityLongShooting);
-                    motorShooterRight.setVelocity(velocityLongShooting);
-                }
+                liftExpansion.setPosition(lifterDownPosition);
+                liftControl.setPosition(lifterDownPosition);
 
                 stepTimer.reset();
                 launchStep = "a1 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 300)//350
+            else if (launchStep.equalsIgnoreCase("a1 - drop lifter") && stepTimer.milliseconds() > 200)//350
             {
-                axonTargetPosition += 120;
-                if(axonTargetPosition < 0)
-                {
-                    axonTargetPosition += 360;
-                }
-                else if(axonTargetPosition > 360)
-                {
-                    axonTargetPosition -= 360;
-                }
-                axonDirection = "cw";
-                robot.magazineEngaged = true;
+                arrPos += 1;
                 launchStep = "a2 - get next artifact";
                 stepTimer.reset();
             }
-            else if (launchStep.equalsIgnoreCase("a2 - get next artifact") && !robot.magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a2 - get next artifact") && stepTimer.milliseconds() > 300)//300
             {
+                //stepTimer.reset();
                 if(launchType.equalsIgnoreCase("current"))
                 {
-                    if(stepTimer.milliseconds() > 500)
+
+                    if(stepTimer.milliseconds() > 200)//500
                     {
+
                         servoLoaderAssist.setPower(0.0);
                         servoLoaderStartRight.setPower(0.0);
                         servoLoaderStartLeft.setPower(0.0);
                         motorShooterLeft.setVelocity(0);
                         motorShooterRight.setVelocity(0);
-
                         launchEngaged = false;
                         launchStep = "none";
                     }
@@ -711,85 +743,53 @@ public class teleopRed extends LinearOpMode
                 else if(launchType.equalsIgnoreCase("all"))
                 {
                     launchStep = "a2 - initial position";
+
+                    motorShooterLeft.setVelocity((velocityShooting-30));
+                    motorShooterRight.setVelocity((velocityShooting-30)); //lower speed for 3rd shot
                 }
             }
-            else if (launchStep.equalsIgnoreCase("a2 - initial position") && !robot.magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a2 - initial position"))
             {
-                /*
-                servoLoaderAssist.setPower(-1.0);
-                servoLoaderStartRight.setPower(-1.0);
-                servoLoaderStartLeft.setPower(1.0);
-                 */
-                servoLifter.setPosition(lifterServoUp);
+
+                liftExpansion.setPosition(liftExpansionUp);
+                liftControl.setPosition(liftControlUp);
 
                 stepTimer.reset();
                 launchStep = "a2 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 300)
+            else if (launchStep.equalsIgnoreCase("a2 - lifter engaged") && stepTimer.milliseconds() > 150)//300
             {
-                servoLifter.setPosition(lifterServoDown);
-                if(!shootingLong)
-                {
-                    motorShooterLeft.setVelocity(velocityShooting);
-                    motorShooterRight.setVelocity(velocityShooting);
-                }
-                if(shootingLong)
-                {
-                    motorShooterLeft.setVelocity(velocityLongShooting);
-                    motorShooterRight.setVelocity(velocityLongShooting);
-                }
-                //motorShooterLeft.setVelocity(velocityShooting2);
-                //motorShooterRight.setVelocity(velocityShooting2);
+                liftExpansion.setPosition(lifterDownPosition);
+                liftControl.setPosition(lifterDownPosition);
 
                 stepTimer.reset();
                 launchStep = "a2 - drop lifter";
             }
-            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 300)
+            else if (launchStep.equalsIgnoreCase("a2 - drop lifter") && stepTimer.milliseconds() > 200)
             {
-                axonTargetPosition += 120;
-                if(axonTargetPosition < 0)
-                {
-                    axonTargetPosition += 360;
-                }
-                else if(axonTargetPosition > 360)
-                {
-                    axonTargetPosition -= 360;
-                }
-                axonDirection = "cw";
-                robot.magazineEngaged = true;
+                arrPos += 1;
+                stepTimer.reset();
                 launchStep = "a3 - get next artifact";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - get next artifact") && !robot.magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a3 - get next artifact") && stepTimer.milliseconds() > 300)//300
             {
                 launchStep = "a3 - initial position";
+
+                motorShooterLeft.setVelocity((velocityShooting-60));
+                motorShooterRight.setVelocity((velocityShooting-60)); //lower speed for 3rd shot
             }
-            else if (launchStep.equalsIgnoreCase("a3 - initial position") && !robot.magazineEngaged)
+            else if (launchStep.equalsIgnoreCase("a3 - initial position"))
             {
-                /*
-                servoLoaderAssist.setPower(-1.0);
-                servoLoaderStartRight.setPower(-1.0);
-                servoLoaderStartLeft.setPower(1.0);
-                 */
-                servoLifter.setPosition(lifterServoUp);
+                liftExpansion.setPosition(liftExpansionUp);
+                liftControl.setPosition(liftControlUp);
 
                 stepTimer.reset();
                 launchStep = "a3 - lifter engaged";
             }
-            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 300)
+            else if (launchStep.equalsIgnoreCase("a3 - lifter engaged") && stepTimer.milliseconds() > 150)//300
             {
-                servoLifter.setPosition(lifterServoDown);
-                if(!shootingLong)
-                {
-                    motorShooterLeft.setVelocity(velocityShooting);
-                    motorShooterRight.setVelocity(velocityShooting);
-                }
-                if(shootingLong)
-                {
-                    motorShooterLeft.setVelocity(velocityLongShooting);
-                    motorShooterRight.setVelocity(velocityLongShooting);
-                }
-                //motorShooterLeft.setVelocity(velocityShooting3);
-                //motorShooterRight.setVelocity(velocityShooting3);
+                liftExpansion.setPosition(lifterDownPosition);
+                liftControl.setPosition(lifterDownPosition);
 
                 stepTimer.reset();
                 launchStep = "a3 - turn off launcher";
@@ -802,6 +802,8 @@ public class teleopRed extends LinearOpMode
                 motorShooterLeft.setVelocity(0);
                 motorShooterRight.setVelocity(0);
 
+                arrPos = 6;
+
                 launchEngaged = false;
                 launchStep = "none";
             }
@@ -813,6 +815,9 @@ public class teleopRed extends LinearOpMode
         telemetry.addData("dist from goal", distanceToGoal);
         telemetry.addData("llx", llX);
         telemetry.addData("tracking speed", trackingSpeed);
+
+        telemetry.addData("motor velocity left", motorShooterLeft.getVelocity());
+        telemetry.addData("motor velocity right", motorShooterRight.getVelocity());
 
         telemetry.addData("chamber control", chambers[0]);
         telemetry.addData("chamber barrel", chambers[1]);
@@ -864,7 +869,7 @@ public class teleopRed extends LinearOpMode
         telemetry.addData("aux stick left Y", auxStickLeftY);
 
 
-        telemetry.addData("axon encoder", ((axonEncoder.getVoltage() / 3.3) * 360));
+        //telemetry.addData("axon encoder", ((axonEncoder.getVoltage() / 3.3) * 360));
         //telemetry.addData("axon target", axonTargetPosition);
         //telemetry.addData("rotation direction", axonDirection);
         //telemetry.addData("axon direction", axon.getDirection());
@@ -873,9 +878,7 @@ public class teleopRed extends LinearOpMode
         //telemetry.addData("difference", ((axonEncoder.getVoltage() / 3.3) * 360) - testAxon.getCurrentAngle());
         telemetry.addData("engaged", robot.magazineEngaged);
         telemetry.addData("intake power", intakeMotor.getPower());
-        telemetry.addData("magazine power", axon.getPower());
-        telemetry.addData("motor velocity left", motorShooterLeft.getVelocity());
-        telemetry.addData("motor velocity right", motorShooterRight.getVelocity());
+        //telemetry.addData("magazine power", axon.getPower());
 
         telemetry.update();
     }
@@ -886,12 +889,24 @@ public class teleopRed extends LinearOpMode
 
         servoLoaderStartLeft = hardwareMap.get(CRServo.class, "StartLeft");
         servoLoaderStartRight = hardwareMap.get(CRServo.class, "StartRight");
+
+        servoLoaderStartLeft.setDirection(CRServo.Direction.REVERSE);
+        servoLoaderStartRight.setDirection(CRServo.Direction.REVERSE);
+
+
         servoLoaderAssist = hardwareMap.get(CRServo.class, "LoaderAssist");
-        servoLifter = hardwareMap.get(Servo.class, "lifter");
+        //servoLifter = hardwareMap.get(Servo.class, "lifter");
         internalLight = hardwareMap.get(Servo.class, "InternalLight");
 
-        axon = hardwareMap.get(CRServo.class, "axon");
-        axonEncoder = hardwareMap.get(AnalogInput.class, "axonEncoder");
+
+        liftControl = hardwareMap.get(Servo.class, "liftControl");
+        liftExpansion = hardwareMap.get(Servo.class, "liftExpansion");
+        liftControl.setDirection(Servo.Direction.FORWARD);
+        liftExpansion.setDirection(Servo.Direction.FORWARD);
+
+        turntable = hardwareMap.get(Servo.class, "axon");
+        //axon = hardwareMap.get(CRServo.class, "axon");
+        //axonEncoder = hardwareMap.get(AnalogInput.class, "axonEncoder");
         intakeMotor = hardwareMap.get(DcMotor.class, "Intake");
         //axon = hardwareMap.get(CRServo.class, "Magazine");
 
@@ -945,14 +960,14 @@ public class teleopRed extends LinearOpMode
         //testAxon.setRtp(true);
         internalLight.setPosition(0.4);//0.5
 
-        servoLifter.setPosition(lifterServoDown);
+        //servoLifter.setPosition(lifterServoDown);
 
 
         resetTimer = new ElapsedTime();
         robot = new ShooterBot();
         robot.setLaunchMotors(motorShooterLeft, motorShooterRight);
-        robot.setMagazine(axon, axonEncoder);
-        robot.setLoadServos(servoLifter, servoLoaderStartLeft, servoLoaderStartRight, servoLoaderAssist);
+        //robot.setMagazine(axon, axonEncoder);
+        //robot.setLoadServos(servoLifter, servoLoaderStartLeft, servoLoaderStartRight, servoLoaderAssist);
         robot.startCameraSensors();
 
         VisionPortal portal = new VisionPortal.Builder()
@@ -967,6 +982,20 @@ public class teleopRed extends LinearOpMode
             chambers[i] = "?";
         }
 
+        servoPositions[0] = 0.3461;
+        servoPositions[1] = 0.3695;
+        servoPositions[2] = 0.3949;//0.3965, 0.39485
+        servoPositions[3] = 0.4202;
+        servoPositions[4] = 0.4463;
+        servoPositions[5] = 0.4726;
+        servoPositions[6] = 0.5;
+        servoPositions[7] = 0.5299;//0.007
+        servoPositions[8] = 0.5578;//0.003
+        servoPositions[9] = 0.5874;//0.012
+        servoPositions[10] = 0.6142;
+        servoPositions[11] = 0.6427;
+        servoPositions[12] = 0.6703;
+
         //robot.initLimeLight();
         ll = hardwareMap.get(Limelight3A.class, "limelight");
         robot.setLimelight(ll);
@@ -974,6 +1003,8 @@ public class teleopRed extends LinearOpMode
         waitForStart();
         robot.startLimelight();
         //bot.getIMUOffset();
+        liftControl.setPosition(0.5);
+        liftExpansion.setPosition(0.5);
     }
 
     @Override
@@ -1003,26 +1034,22 @@ public class teleopRed extends LinearOpMode
 
             fixShooter();
             //fixMagazine();
-            if(!launchEngaged)
-            {
-                //drive();
-                magazine();
-                //intake();
-                //shooter();
-                //loading();
-            }
             drive();
             trackAprilTag();
             getDistFromGoal();
             intake();
             launch();
-            shootSpecific();
+            magazine();
+            //shootSpecific();
             showTelemetry();
-
+            startMotors();
+            /*
             if(robot.magazineEngaged)
             {
                 robot.axonToPosition(axonTargetPosition, axonDirection);
             }
+
+             */
 
             chambers = robot.getChambers();
 
